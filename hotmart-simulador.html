@@ -392,9 +392,8 @@ function nowHHMM(){
 }
 
 function randomCode(){
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let c = "HP";
-  for(let i=0;i<10;i++) c += chars[rand(0,chars.length-1)];
+  for(let i=0;i<10;i++) c += rand(0,9);
   return c;
 }
 
@@ -690,18 +689,17 @@ async function enviarNotifNativa(sale){
     // navigator.serviceWorker.ready espera a que el SW esté activo → siempre funciona
     const reg = await navigator.serviceWorker.ready;
     const iconUrl = window.location.origin + '/icon-192.png';
-    const badgeUrl = window.location.origin + '/transparent.png';
     reg.showNotification(title, {
       body: body,
       tag: sale.code,
       renotify: true,
       vibrate: [200, 100, 200],
-      icon: badgeUrl,
+      icon: iconUrl,
       badge: iconUrl
     });
   } catch(e) {
     // fallback si SW falla
-    new Notification(title, { body, tag: sale.code, renotify: true });
+    new Notification(title, { body, icon: window.location.origin + '/icon-192.png', tag: sale.code, renotify: true });
   }
 }
 
