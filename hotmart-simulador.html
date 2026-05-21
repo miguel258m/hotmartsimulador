@@ -545,10 +545,14 @@ function getNotifContainer(){
 
 function mostrarAlertaMovil(sale){
   const container = getNotifContainer();
-  const isVentaEfectuada = Math.random() < 0.15;
-  const titulo = isVentaEfectuada
-    ? "Venta efectuada"
-    : "Venta realizada con " + sale.method.label.split(" ")[0] + "...";
+  const titulos = [
+    "¡Hay una solicitud de pago abonada!",
+    "Venta efectuada",
+    "¡Hay una solicitud de pago abonada!",
+    "¡Hay una solicitud de pago abonada!",
+    sale.method.label === "Boleto" ? "Nuevo Boleto Bancário generado..." : "¡Hay una solicitud de pago abonada!",
+  ];
+  const titulo = titulos[Math.floor(Math.random() * titulos.length)];
   const hora = sale.time;
 
   const el = document.createElement("div");
@@ -679,12 +683,15 @@ async function pedirPermisoNotificaciones(){
 
 async function enviarNotifNativa(sale){
   if(Notification.permission !== "granted") return;
-  const isEfectuada = Math.random() < 0.15;
-  const title = isEfectuada
-    ? "Venta efectuada"
-    : "Venta realizada con " + sale.method.label + "...";
-  const comision = (sale.amount * 0.80).toFixed(2); // simula comisión ~80%
-  const body = "Recibes: US$ " + comision + " – " + sale.code;
+  const titles = [
+    "¡Hay una solicitud de pago abonada!",
+    "Venta efectuada",
+    "¡Hay una solicitud de pago abonada!",
+    "¡Hay una solicitud de pago abonada!",
+    sale.method.label === "Boleto" ? "Nuevo Boleto Bancário generado..." : "¡Hay una solicitud de pago abonada!",
+  ];
+  const title = titles[Math.floor(Math.random() * titles.length)];
+  const body = "Recibes: US$ " + sale.amount.toFixed(2) + " – " + sale.code;
   try {
     // navigator.serviceWorker.ready espera a que el SW esté activo → siempre funciona
     const reg = await navigator.serviceWorker.ready;
