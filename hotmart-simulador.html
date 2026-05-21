@@ -567,7 +567,7 @@ function mostrarAlertaMovil(sale){
           <span style="font-size:11px;color:#999;flex-shrink:0;margin-left:6px">${hora}</span>
         </div>
         <div style="font-size:12px;color:#555;margin-top:2px">
-          Tu comisión: <strong style="color:#111">${fmtMoney(sale.amount)}</strong> – ${sale.code}
+          Recibes: <strong style="color:#111">${fmtMoney(sale.amount)}</strong> – ${sale.code}
         </div>
       </div>
     </div>
@@ -684,7 +684,7 @@ async function enviarNotifNativa(sale){
     ? "Venta efectuada"
     : "Venta realizada con " + sale.method.label + "...";
   const comision = (sale.amount * 0.80).toFixed(2); // simula comisión ~80%
-  const body = "Tu comisión: US$ " + comision + " – " + sale.code;
+  const body = "Recibes: US$ " + comision + " – " + sale.code;
   try {
     // navigator.serviceWorker.ready espera a que el SW esté activo → siempre funciona
     const reg = await navigator.serviceWorker.ready;
