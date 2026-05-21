@@ -688,7 +688,7 @@ async function enviarNotifNativa(sale){
   try {
     // navigator.serviceWorker.ready espera a que el SW esté activo → siempre funciona
     const reg = await navigator.serviceWorker.ready;
-    const iconUrl = window.location.origin + '/icon-192.png';
+    const iconUrl = getIconUrl();
     reg.showNotification(title, {
       body: body,
       tag: sale.code,
@@ -699,7 +699,7 @@ async function enviarNotifNativa(sale){
     });
   } catch(e) {
     // fallback si SW falla
-    new Notification(title, { body, icon: window.location.origin + '/icon-192.png', tag: sale.code, renotify: true });
+    new Notification(title, { body, icon: getIconUrl(), tag: sale.code, renotify: true });
   }
 }
 
