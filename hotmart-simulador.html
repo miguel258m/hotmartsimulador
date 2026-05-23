@@ -397,12 +397,19 @@ function randomCode(){
   return c;
 }
 
+// ─── MONTOS REALES ──────────────────────────────────────────────────────────
+const AMOUNTS = [
+  7.90,7.83,7.34,6.35,5.89,5.64,4.30,8.65,8.32,9.22,9.34,10.33,
+  23.40,21.45,20.54,21.52,23.77,24.69,25.60,30.89,30.59,34.50,
+  50.30,51.20,52.56,53.78,54.98,60.41,61.20,63.34,63.50,63.89,
+  70.52,71.40,72.30,70.89,70.76,80.63,80.89,80.76,81.30,82.45,
+  83.56,84.90,86.80,90.74,91.30,93.09,94.60,100.85,110.31
+];
+
 // ─── SALE GENERATOR ─────────────────────────────────────────────────────────
 function generateSale(manual){
   const product = pick(PRODUCTS);
-  // small random variance ±15%
-  const variance = (Math.random() * .3 - .15);
-  const amount   = +(product.price * (1 + variance)).toFixed(2);
+  const amount  = pick(AMOUNTS);
   const name     = pick(NAMES);
   const email    = name.split(" ")[0].toLowerCase() + rand(10,999) + "@" + pick(DOMAINS);
   const method   = pick(METHODS);
@@ -545,14 +552,11 @@ function getNotifContainer(){
 
 function mostrarAlertaMovil(sale){
   const container = getNotifContainer();
-  const titulos = [
-    "¡Hay una solicitud de pago abonada!",
-    "Venta efectuada",
-    "¡Hay una solicitud de pago abonada!",
-    "¡Hay una solicitud de pago abonada!",
-    sale.method.label === "Boleto" ? "Nuevo Boleto Bancário generado..." : "¡Hay una solicitud de pago abonada!",
-  ];
-  const titulo = titulos[Math.floor(Math.random() * titulos.length)];
+  const esBoletoAlert = sale.method.label === "Boleto";
+  const titulosPool = esBoletoAlert
+    ? ["Nuevo Boleto Bancário generado..."]
+    : ["¡Hay una solicitud de pago abonada!", "Venta efectuada", "¡Hay una solicitud de pago abonada!", "¡Hay una solicitud de pago abonada!"];
+  const titulo = titulosPool[Math.floor(Math.random() * titulosPool.length)];
   const hora = sale.time;
 
   const el = document.createElement("div");
@@ -683,15 +687,14 @@ async function pedirPermisoNotificaciones(){
 
 async function enviarNotifNativa(sale){
   if(Notification.permission !== "granted") return;
-  const titles = [
-    "¡Hay una solicitud de pago abonada!",
-    "Venta efectuada",
-    "¡Hay una solicitud de pago abonada!",
-    "¡Hay una solicitud de pago abonada!",
-    sale.method.label === "Boleto" ? "Nuevo Boleto Bancário generado..." : "¡Hay una solicitud de pago abonada!",
-  ];
+  const esBoleto = sale.method.label === "Boleto";
+  const titles = esBoleto
+    ? ["Nuevo Boleto Bancário generado..."]
+    : ["¡Hay una solicitud de pago abonada!", "Venta efectuada", "¡Hay una solicitud de pago abonada!", "¡Hay una solicitud de pago abonada!"];
   const title = titles[Math.floor(Math.random() * titles.length)];
-  const body = "Recibes: US$ " + sale.amount.toFixed(2) + " – " + sale.code;
+  const body = esBoleto
+    ? "Valor: US$ " + sale.amount.toFixed(2) + " – " + sale.code + ". El pago se procesará cuando el Boleto Bancário haya sido abonado."
+    : "Recibes: US$ " + sale.amount.toFixed(2) + " – " + sale.code;
   try {
     // navigator.serviceWorker.ready espera a que el SW esté activo → siempre funciona
     const reg = await navigator.serviceWorker.ready;
