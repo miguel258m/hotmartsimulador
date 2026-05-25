@@ -391,9 +391,8 @@ function nowHHMM(){
 }
 
 function randomCode(){
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let c = "HP";
-  for(let i=0;i<10;i++) c += chars[rand(0,chars.length-1)];
+  for(let i=0;i<10;i++) c += rand(0,9);
   return c;
 }
 
