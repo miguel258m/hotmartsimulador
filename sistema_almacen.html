@@ -1,0 +1,2485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestión de Almacén</title>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2d5a8e;
+    --accent: #f0a500;
+    --danger: #e74c3c;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --border: #dce3ea;
+    --sidebar-w: 220px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--primary) 0%, #0a1e35 100%);
+  }
+  .login-box {
+    background: var(--card); border-radius: 16px; padding: 48px 40px;
+    width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    text-align: center;
+  }
+  .login-box .logo { font-size: 48px; margin-bottom: 8px; }
+  .login-box h1 { font-size: 22px; color: var(--primary); margin-bottom: 4px; }
+  .login-box p { font-size: 13px; color: var(--text-light); margin-bottom: 28px; }
+  .login-box input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; margin-bottom: 14px; outline: none;
+    transition: border-color .2s;
+  }
+  .login-box input:focus { border-color: var(--primary-light); }
+  .login-box button {
+    width: 100%; padding: 13px; background: var(--primary);
+    color: #fff; border: none; border-radius: 8px; font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: background .2s;
+  }
+  .login-box button:hover { background: var(--primary-light); }
+  .login-error { color: var(--danger); font-size: 13px; margin-top: -6px; margin-bottom: 10px; display: none; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; min-height: 100vh; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh;
+    background: var(--primary); color: #fff; display: flex; flex-direction: column;
+    z-index: 100; box-shadow: 2px 0 12px rgba(0,0,0,.2);
+  }
+  .sidebar-header {
+    padding: 22px 18px 18px; border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .sidebar-header .app-name { font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+  .sidebar-header .app-sub { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 2px; }
+  .sidebar nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; cursor: pointer; font-size: 14px;
+    transition: background .15s; border-left: 3px solid transparent;
+    color: rgba(255,255,255,.75);
+  }
+  .nav-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .nav-item.active { background: rgba(255,255,255,.12); border-left-color: var(--accent); color: #fff; font-weight: 600; }
+  .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
+  .sidebar-footer {
+    padding: 16px 18px; border-top: 1px solid rgba(255,255,255,.1);
+    font-size: 12px; color: rgba(255,255,255,.5);
+  }
+  .sidebar-footer .user-name { font-size: 13px; color: #fff; font-weight: 600; margin-bottom: 6px; }
+  .logout-btn {
+    background: rgba(255,255,255,.1); border: none; color: rgba(255,255,255,.7);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    transition: background .15s; width: 100%;
+  }
+  .logout-btn:hover { background: rgba(255,255,255,.2); color: #fff; }
+
+  .main-content {
+    margin-left: var(--sidebar-w); min-height: 100vh;
+    padding: 28px; background: var(--bg);
+  }
+  .page-header { margin-bottom: 24px; }
+  .page-header h2 { font-size: 22px; color: var(--primary); }
+  .page-header p { font-size: 13px; color: var(--text-light); margin-top: 3px; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card); border-radius: 12px;
+    padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    border: 1px solid var(--border);
+  }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border-radius: 12px; padding: 20px;
+    border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .stat-icon { font-size: 32px; }
+  .stat-num { font-size: 26px; font-weight: 700; color: var(--primary); }
+  .stat-lbl { font-size: 12px; color: var(--text-light); }
+
+  /* ══════════════════════════════════════
+     WAREHOUSE MAP — fiel al plano
+     Layout: [REFRACT] [3 RACKS + ⚠️] [ESCALERA] [OX1|OX2|OX3]
+             (vacío)    (vacío)         [  ÁREA INFERIOR        ]
+     ══════════════════════════════════════ */
+  .warehouse-map-container { overflow-x: auto; padding-bottom: 10px; }
+  .warehouse-map {
+    position: relative;
+    min-width: 1000px; padding: 16px;
+    background: #c8d2dc; border-radius: 12px;
+    border: 2px solid #b0bcc8;
+    min-height: 680px;
+    overflow: visible;
+  }
+  /* REFRACTARIOS — sala izquierda */
+  .wh-ref {
+    background: #fff; border: 2px solid var(--border); border-radius: 8px;
+    padding: 12px 10px; min-width: 108px; max-width: 130px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px; text-align: center; flex-shrink: 0;
+  }
+  .wh-ref-label {
+    font-size: 9px; font-weight: 800; color: var(--primary);
+    text-transform: uppercase; line-height: 1.6; letter-spacing: .3px;
+  }
+  /* Centro — racks + señales */
+  .wh-center { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+  .wh-hazard-row { display: flex; gap: 20px; justify-content: space-around; padding: 0 6px; }
+  .wh-hazard-icon { font-size: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.2)); }
+  .wh-racks-box {
+    background: #fff; border: 2px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; display: flex; gap: 20px; flex: 1; align-items: flex-start;
+  }
+  .wh-rack-unit { display: flex; gap: 4px; }
+  .wh-rack-col { display: flex; flex-direction: column; gap: 3px; }
+  /* Columna derecha: escalera + OXIDO (fila) + INFERIOR */
+  .wh-right { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+  .wh-right-top { display: flex; gap: 8px; align-items: stretch; }
+  /* Escalera */
+  .wh-stairs {
+    background: #bfcad6; border: 2px dashed #9aaab8; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 26px; gap: 5px; padding: 8px 6px; min-width: 58px; flex-shrink: 0;
+  }
+  .wh-stairs-lbl { font-size: 7px; font-weight: 700; color: #5a6c7d; letter-spacing: .4px; }
+  /* OXIDO rooms — fila horizontal */
+  .wh-oxido { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .wh-ox-hazard { text-align: right; font-size: 18px; line-height: 1; }
+  .wh-ox-rooms { display: flex; gap: 5px; }
+  .wh-ox-room {
+    background: #fff8f2; border: 2px solid #c09060; border-radius: 7px;
+    padding: 6px 5px; display: flex; flex-direction: column; gap: 5px;
+    align-items: center; flex: 1;
+  }
+  .wh-ox-label {
+    font-size: 7.5px; font-weight: 800; color: #6a2200;
+    text-transform: uppercase; text-align: center; line-height: 1.5;
+    background: rgba(160,80,20,.1); border-radius: 3px;
+    padding: 2px 3px; width: 100%;
+  }
+  .wh-ox-shelves { display: flex; gap: 3px; }
+  /* ÁREA INFERIOR */
+  .wh-inferior {
+    background: #fff; border: 2px solid var(--border); border-radius: 8px; padding: 9px;
+  }
+  .wh-inf-label {
+    font-size: 9px; font-weight: 800; color: #1e5a1e;
+    text-transform: uppercase; text-align: center; margin-bottom: 7px;
+    background: rgba(30,90,30,.08); border-radius: 3px; padding: 3px 6px; letter-spacing:.3px;
+  }
+  .wh-inf-perim-row { display: flex; gap: 3px; justify-content: center; }
+  .wh-inf-body { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  .wh-inf-side { display: flex; flex-direction: column; gap: 3px; }
+  .wh-inf-center {
+    flex: 1; display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px; padding: 4px 8px;
+  }
+  /* Celdas estantería (delgadas) */
+  .cell {
+    width: 30px; height: 13px; border-radius: 2px; cursor: pointer;
+    border: 1.5px solid; font-size: 7px; display: flex; align-items: center;
+    justify-content: center; transition: transform .12s, box-shadow .12s;
+    font-weight: 700; overflow: hidden;
+  }
+  .cell:hover { transform: scale(1.3); box-shadow: 0 4px 14px rgba(0,0,0,.28); z-index: 20; position: relative; }
+  .cell.empty    { background: #dde4ec; border-color: #adb9c6; }
+  .cell.occupied { background: #c0e8cc; border-color: #27ae60; color: #0d4a22; }
+  .cell.partial  { background: #fef3cd; border-color: #f0a500; color: #7a5000; }
+  /* Celdas grandes — grilla central del INFERIOR */
+  .cell-lg {
+    width: 100%; height: 44px; border-radius: 4px; cursor: pointer;
+    border: 2px solid; font-size: 9px; display: flex; align-items: center;
+    justify-content: center; transition: transform .12s, box-shadow .12s; font-weight: 700;
+  }
+  .cell-lg:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(0,0,0,.22); z-index: 20; position: relative; }
+  .cell-lg.empty    { background: #dde4ec; border-color: #adb9c6; }
+  .cell-lg.occupied { background: #c0e8cc; border-color: #27ae60; color: #0d4a22; }
+  /* Leyenda */
+  .map-legend { display: flex; gap: 16px; margin-top: 14px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-light); }
+  .legend-dot { width: 18px; height: 10px; border-radius: 2px; border: 1.5px solid; }
+  .legend-dot.empty    { background: #dde4ec; border-color: #adb9c6; }
+  .legend-dot.occupied { background: #c0e8cc; border-color: #27ae60; }
+  .legend-dot.partial  { background: #fef3cd; border-color: #f0a500; }
+  .cell.multi     { background: #b3d4f5; border-color: #2980b9; color: #1a4a7a; }
+  .cell-lg.multi  { background: #b3d4f5; border-color: #2980b9; color: #1a4a7a; }
+  .legend-dot.multi { background: #b3d4f5; border-color: #2980b9; }
+
+  /* ── FORMS ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1/-1; }
+  .form-group label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .2s;
+    background: #fff; color: var(--text);
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--primary-light);
+  }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .btn {
+    padding: 11px 24px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #219a52; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-row { display: flex; gap: 12px; margin-top: 20px; }
+
+  /* ── SEARCH ── */
+  .search-bar {
+    display: flex; gap: 10px; margin-bottom: 20px;
+  }
+  .search-bar input {
+    flex: 1; padding: 12px 16px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; outline: none;
+  }
+  .search-bar input:focus { border-color: var(--primary-light); }
+  .search-bar button { padding: 12px 20px; }
+  .result-card {
+    background: var(--card); border-radius: 12px; padding: 20px;
+    border: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .result-card h3 { color: var(--primary); font-size: 16px; margin-bottom: 8px; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .result-field { font-size: 12px; }
+  .result-field span { display: block; color: var(--text-light); }
+  .result-field strong { font-size: 14px; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .badge-success { background: #d4f0dc; color: #1a7a42; }
+  .badge-warning { background: #fef3cd; color: #a06800; }
+  .badge-danger { background: #fde8e8; color: #c0392b; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--primary); color: #fff; padding: 12px 14px;
+    text-align: left; font-weight: 600; letter-spacing: .3px;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #edf3fb; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.5); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 14px; padding: 28px;
+    width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal h3 { font-size: 18px; color: var(--primary); margin-bottom: 16px; }
+  .modal-info-row {
+    display: flex; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .modal-info-row:last-child { border-bottom: none; }
+  .modal-info-row span { color: var(--text-light); }
+
+  /* ── ADMIN ── */
+  .admin-zone { background: #fff8f0; border: 1.5px solid #f0a500; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .admin-zone h4 { color: #a06800; margin-bottom: 8px; }
+  .admin-zone p { font-size: 13px; color: #7a5200; margin-bottom: 14px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: #2c3e50; color: #fff; padding: 14px 20px; border-radius: 10px;
+    font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    transform: translateY(60px); opacity: 0;
+    transition: all .3s; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { background: var(--success); }
+  #toast.error { background: var(--danger); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--text-light); font-size: 14px; }
+  .hist-totales {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px;
+  }
+  .hist-total-card {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 18px; border-radius: 8px; min-width: 120px; text-align: center;
+  }
+  .hist-total-card.entradas { background: #d4f0dc; border: 1.5px solid #27ae60; }
+  .hist-total-card.salidas  { background: #fde8e8; border: 1.5px solid #e74c3c; }
+  .hist-total-card.total    { background: #e8f0fb; border: 1.5px solid #2d5a8e; }
+  .hist-total-num  { font-size: 22px; font-weight: 800; color: var(--primary); }
+  .hist-total-lbl  { font-size: 11px; color: var(--text-light); font-weight: 600; text-transform: uppercase; }
+  .hist-total-sub  { font-size: 12px; font-weight: 700; margin-top: 2px; }
+  .hist-total-card.entradas .hist-total-sub { color: #1a7a42; }
+  .hist-total-card.salidas  .hist-total-sub { color: #c0392b; }
+  .hist-total-card.total    .hist-total-sub { color: #1e3a5f; }
+  .empty-state .ei { font-size: 48px; margin-bottom: 12px; }
+
+  /* ── EDITOR DE MAPA ── */
+  .editor-toolbar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;}
+  .zone-list{display:flex;flex-direction:column;gap:10px;}
+  .zone-item{background:var(--card);border-radius:10px;border:1px solid var(--border);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.05);}
+  .zone-item-header{display:flex;align-items:center;gap:12px;padding:14px 16px;}
+  .zone-color-bar{width:8px;border-radius:4px;align-self:stretch;flex-shrink:0;min-height:40px;}
+  .zone-item-info{flex:1;}
+  .zone-item-name{font-size:15px;font-weight:700;color:var(--text);display:block;}
+  .zone-item-meta{font-size:12px;color:var(--text-light);margin-top:2px;display:block;}
+  .zone-item-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .zone-item-actions button{padding:5px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;font-size:12px;transition:all .15s;font-weight:600;}
+  .zone-item-actions button:hover{background:var(--bg);}
+  .zone-item-actions .btn-del{border-color:#fde8e8;color:var(--danger);}
+  .zone-item-actions .btn-del:hover{background:#fde8e8;}
+  .dyn-map{position:relative;padding:14px;background:#c8d2dc;border-radius:10px;min-height:440px;overflow:visible;}
+  .dyn-map.view-mode{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;position:relative;min-height:80px;}
+  .dyn-zone{position:absolute;background:#fff;border-radius:8px;padding:8px;border:2px solid var(--border);box-sizing:border-box;overflow:visible;display:flex;flex-direction:column;}
+  .dyn-zone.view-mode-z{position:static;overflow:hidden;}
+  .dyn-zone-label{font-size:9px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:4px;padding:2px 5px;border-radius:3px;line-height:1.2;white-space:pre-line;flex-shrink:0;}
+  .dyn-zone-cells{display:flex;gap:1px;justify-content:center;flex:1;min-height:0;width:100%;}
+  .dyn-zone-col{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;height:100%;}
+  .dyn-zone .cell{width:auto;height:auto;flex:1;min-width:0;min-height:0;font-size:calc(5px + 0.3vw);padding:0;margin:0;box-sizing:border-box;border-width:1px;}
+  .dyn-zone .cell:hover{transform:none;box-shadow:none;} /* Evitar zoom en modo dinámico para no tapar otros */
+  .dyn-zone-deco{position:absolute;background:#bfcad6;border:2px dashed #9aaab8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:8px;padding:8px;box-sizing:border-box;}
+  .dyn-zone-deco.view-mode-z{position:static;min-width:56px;min-height:80px;}
+  .dyn-zone-deco .dz-icon{font-size:24px;}
+  .dyn-zone-deco .dz-lbl{font-size:7px;font-weight:700;color:#5a6c7d;letter-spacing:.4px;}
+  /* ── EDIT MODE ── */
+  .edit-mode .dyn-zone,.edit-mode .dyn-zone-deco{cursor:move;user-select:none;}
+  .edit-mode .dyn-zone:hover,.edit-mode .dyn-zone-deco:hover{box-shadow:0 0 0 2px #f0a500,0 4px 16px rgba(0,0,0,.2);}
+  .z-del{position:absolute;top:-10px;right:-10px;width:22px;height:22px;background:#e74c3c;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:14px;font-weight:bold;display:none;align-items:center;justify-content:center;z-index:50;line-height:1;}
+  .edit-mode .z-del{display:flex;}
+  .z-rsz{position:absolute;bottom:0;right:0;width:14px;height:14px;background:#f0a500;border-radius:0 0 6px 0;cursor:se-resize;display:none;z-index:50;}
+  .edit-mode .z-rsz{display:block;}
+  .z-rot{position:absolute;top:-10px;left:-10px;width:22px;height:22px;background:#2d5a8e;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:13px;display:none;align-items:center;justify-content:center;z-index:50;}
+  .edit-mode .z-rot{display:flex;}
+  .z-inv{position:absolute;bottom:-10px;left:-10px;width:22px;height:22px;background:#8e44ad;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;z-index:50;font-weight:700;}
+  .edit-mode .z-inv{display:flex;}
+  .z-inv.active{background:#27ae60;}
+  .z-lbl-edit{cursor:text;}
+  .edit-banner{background:#fff3cd;border:1.5px solid #f0a500;color:#7a5200;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;gap:10px;align-items:center;}
+  .btn-warning{background:#f0a500;color:#fff;border:none;}
+  .btn-warning:hover{background:#d4920a;}
+
+  /* ── CONTROLES DE TAMAÑO DEL MAPA ── */
+  .map-size-controls {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 12px; padding: 10px 14px;
+    background: #f8fafc; border: 1px solid var(--border); border-radius: 10px;
+  }
+  .map-size-label { font-size: 12px; font-weight: 600; color: var(--text-light); white-space: nowrap; }
+  .map-size-presets { display: flex; gap: 6px; }
+  .map-size-btn {
+    padding: 5px 12px; border-radius: 6px; border: 1.5px solid var(--border);
+    background: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+    transition: all .15s; color: var(--text);
+  }
+  .map-size-btn:hover { background: var(--bg); border-color: var(--primary-light); }
+  .map-size-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .map-size-slider-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px; }
+  .map-size-slider {
+    flex: 1; -webkit-appearance: none; height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--primary) 0%, var(--primary) var(--pct, 30%), var(--border) var(--pct, 30%));
+    outline: none; cursor: pointer;
+  }
+  .map-size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--primary); cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  }
+  .map-size-val { font-size: 11px; color: var(--text-light); min-width: 38px; text-align: right; }
+  .map-fullscreen-btn {
+    padding: 5px 10px; border-radius: 6px; border: 1.5px solid var(--border);
+    background: #fff; cursor: pointer; font-size: 13px; transition: all .15s;
+  }
+  .map-fullscreen-btn:hover { background: var(--bg); }
+
+  /* ── TABLET (≤768px) ── */
+  @media (max-width: 768px) {
+    .sidebar { width: 64px; }
+    .nav-item span:not(.icon), .sidebar-header .app-name,
+    .sidebar-header .app-sub, .sidebar-footer .user-name, .logout-btn { display: none; }
+    .main-content { margin-left: 64px; padding: 20px 16px; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .result-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── MÓVIL (≤600px) — barra de navegación inferior ── */
+  @media (max-width: 600px) {
+    /* Sidebar → barra inferior */
+    .sidebar {
+      width: 100% !important;
+      height: auto;
+      position: fixed;
+      top: auto !important;
+      bottom: 0;
+      left: 0;
+      flex-direction: row;
+      box-shadow: 0 -2px 16px rgba(0,0,0,.18);
+      z-index: 200;
+    }
+    .sidebar-header { display: none; }
+    .sidebar nav {
+      display: flex;
+      flex-direction: row;
+      padding: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .sidebar nav::-webkit-scrollbar { display: none; }
+    .nav-item {
+      flex-direction: column !important;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 6px 6px !important;
+      gap: 3px !important;
+      min-width: 58px;
+      flex-shrink: 0;
+      border-left: none !important;
+      border-top: 3px solid transparent;
+      font-size: 10px;
+      color: rgba(255,255,255,.65) !important;
+    }
+    .nav-item span:not(.icon) {
+      display: block !important;
+      font-size: 9px !important;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .nav-item .icon { font-size: 20px !important; width: auto !important; }
+    .nav-item.active {
+      border-top-color: var(--accent) !important;
+      border-left-color: transparent !important;
+      color: #fff !important;
+    }
+    .sidebar-footer { display: none; }
+
+    /* Contenido — ancho completo, espacio para la barra inferior */
+    .main-content {
+      margin-left: 0 !important;
+      padding: 16px 14px 86px !important;
+    }
+
+    /* Login */
+    .login-box { width: 94vw; padding: 36px 24px; }
+
+    /* Header de página compacto */
+    .page-header { margin-bottom: 16px; }
+    .page-header h2 { font-size: 18px; }
+    .page-header p { font-size: 12px; }
+    .page-header > div:first-child { flex: 1; min-width: 0; }
+
+    /* Stats — 2 columnas compactas */
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-card { padding: 14px 12px; gap: 10px; }
+    .stat-icon { font-size: 26px; }
+    .stat-num { font-size: 20px; }
+    .stat-lbl { font-size: 11px; }
+
+    /* Cards */
+    .card { padding: 16px 14px; }
+
+    /* Formularios */
+    .form-grid { grid-template-columns: 1fr; gap: 12px; }
+    .result-grid { grid-template-columns: 1fr; }
+    .btn-row { flex-wrap: wrap; gap: 8px; }
+    .btn { font-size: 13px; padding: 10px 16px; }
+    .btn-row .btn { flex: 1; min-width: 120px; text-align: center; }
+
+    /* Tabla: scroll horizontal con celdas más angostas */
+    .table-wrap { border-radius: 8px; }
+    table { font-size: 11px; min-width: 520px; }
+    thead th { padding: 10px 8px; font-size: 11px; }
+    tbody td { padding: 9px 8px; }
+
+    /* Barras de búsqueda */
+    .search-bar { flex-direction: column; gap: 8px; }
+    .search-bar input { width: 100%; }
+    .search-bar button { width: 100%; }
+
+    /* Resultado de búsqueda */
+    .result-card { padding: 14px; }
+    .result-card h3 { font-size: 14px; }
+
+    /* Modal — full-width en móvil */
+    .modal { width: 96vw; padding: 20px 16px; max-height: 85vh; }
+    .modal h3 { font-size: 16px; }
+    .modal-overlay.open { align-items: flex-end; padding-bottom: 0; }
+    .modal { border-radius: 16px 16px 0 0; }
+
+    /* Cabecera del mapa — apilar verticalmente */
+    .page-header[style*="flex"] { flex-direction: column !important; align-items: stretch !important; }
+    .page-header > div:last-child { display: flex; gap: 8px; }
+    .page-header > div:last-child .btn { flex: 1; font-size: 12px; padding: 9px 8px; }
+
+    /* Controles de tamaño del mapa — compactos */
+    .map-size-controls { flex-direction: column; gap: 8px; padding: 10px; }
+    .map-size-slider-wrap { width: 100%; }
+    .map-size-presets { width: 100%; justify-content: stretch; }
+    .map-size-btn { flex: 1; text-align: center; }
+
+    /* Editor de mapa */
+    .editor-toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .editor-toolbar .btn { width: 100%; text-align: center; }
+    .zone-item-header { flex-wrap: wrap; gap: 8px; }
+    .zone-item-actions { flex-wrap: wrap; width: 100%; }
+    .zone-item-actions button { flex: 1; min-width: 70px; }
+
+    /* Filtros historial */
+    #view-historial > div:nth-child(2) { flex-direction: column; }
+    #view-historial > div:nth-child(2) input { width: 100%; }
+
+    /* Admin */
+    .admin-zone > div { flex-direction: column; }
+    .admin-zone > div .btn { width: 100%; }
+
+    /* Banner edición mapa */
+    .edit-banner { font-size: 11px; padding: 6px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="logo">🏭</div>
+    <h1>Sistema de Almacén</h1>
+    <p>Ingrese sus credenciales para continuar</p>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos</div>
+    <input type="text" id="l-user" placeholder="Usuario" autocomplete="username">
+    <input type="password" id="l-pass" placeholder="Contraseña" autocomplete="current-password">
+    <button onclick="doLogin()">Iniciar Sesión</button>
+    <p style="margin-top:18px;font-size:11px;color:#aaa;">Usuario: operador &nbsp;|&nbsp; Contraseña: almacen2024</p>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="app-name">🏭 AlmacénPro</div>
+      <div class="app-sub">Gestión de Inventario</div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showView('dashboard')" id="nav-dashboard">
+        <span class="icon">📊</span><span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="showView('mapa')" id="nav-mapa">
+        <span class="icon">🗺️</span><span>Mapa del Almacén</span>
+      </div>
+      <div class="nav-item" onclick="showView('salida')" id="nav-salida">
+        <span class="icon">📤</span><span>Registrar Salida</span>
+      </div>
+      <div class="nav-item" onclick="showView('buscar')" id="nav-buscar">
+        <span class="icon">🔍</span><span>Buscar Producto</span>
+      </div>
+      <div class="nav-item" onclick="showView('historial')" id="nav-historial">
+        <span class="icon">📋</span><span>Historial</span>
+      </div>
+      <div class="nav-item" onclick="showView('admin')" id="nav-admin">
+        <span class="icon">⚙️</span><span>Administración</span>
+      </div>
+      <div class="nav-item" onclick="showView('editor')" id="nav-editor">
+        <span class="icon">✏️</span><span>Editor de Mapa</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-name" id="sidebar-username">Operador</div>
+      <div style="font-size:11px;margin-bottom:8px;" id="sidebar-year">Año: 2024</div>
+      <button class="logout-btn" onclick="doLogout()">🚪 Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <h2>📊 Dashboard</h2>
+        <p>Resumen del estado actual del almacén</p>
+      </div>
+      <div class="stats-row" id="stats-row"></div>
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:14px;color:var(--primary);">Últimos Movimientos</h3>
+        <div id="dashboard-recent"></div>
+      </div>
+    </div>
+
+    <!-- ── MAPA ── -->
+    <div class="view" id="view-mapa">
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2>🗺️ Mapa del Almacén</h2>
+          <p id="mapa-hint">Haz clic en una celda para ver o asignar un producto</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" id="edit-mode-btn" onclick="toggleEditMode()">✏️ Editar Mapa</button>
+          <button class="btn btn-success" id="add-zone-map-btn" onclick="showZoneModal()" style="display:none;">➕ Agregar Zona</button>
+        </div>
+      </div>
+      <div id="edit-banner" class="edit-banner" style="display:none;">
+        ✏️ <strong>Modo Edición activo</strong> — Arrastra las zonas para moverlas · Doble clic en el nombre para renombrar · Usa la esquina 🟡 para redimensionar · ✖ para eliminar
+      </div>
+      <div class="card">
+        <div class="map-size-controls" id="map-size-controls">
+          <span class="map-size-label">📐 Tamaño del mapa:</span>
+          <div class="map-size-presets">
+            <button class="map-size-btn active" id="sz-normal" onclick="setMapSize('normal')">Normal</button>
+            <button class="map-size-btn" id="sz-grande" onclick="setMapSize('grande')">Grande</button>
+            <button class="map-size-btn" id="sz-enorme" onclick="setMapSize('enorme')">Enorme</button>
+          </div>
+          <div class="map-size-slider-wrap">
+            <span class="map-size-label">Alto:</span>
+            <input type="range" class="map-size-slider" id="map-height-slider"
+              min="400" max="1600" value="680" step="20"
+              oninput="onMapHeightSlider(this.value)">
+            <span class="map-size-val" id="map-height-val">680px</span>
+          </div>
+          <div class="map-size-slider-wrap">
+            <span class="map-size-label">Ancho mín:</span>
+            <input type="range" class="map-size-slider" id="map-width-slider"
+              min="800" max="2400" value="1000" step="50"
+              oninput="onMapWidthSlider(this.value)">
+            <span class="map-size-val" id="map-width-val">1000px</span>
+          </div>
+          <button class="map-fullscreen-btn" title="Pantalla completa" onclick="toggleMapFullscreen()">⛶</button>
+        </div>
+        <div class="warehouse-map-container" id="warehouse-map-container">
+          <div class="warehouse-map" id="warehouse-map"></div>
+        </div>
+        <div class="map-legend">
+          <div class="legend-item"><div class="legend-dot empty"></div> Vacío</div>
+          <div class="legend-item"><div class="legend-dot occupied"></div> Ocupado</div>
+          <div class="legend-item"><div class="legend-dot partial"></div> Parcial</div>
+          <div class="legend-item"><div class="legend-dot multi"></div> Múltiple</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ENTRADA ── -->
+    <div class="view" id="view-entrada">
+      <div class="page-header">
+        <h2>📥 Registrar Entrada de Producto</h2>
+        <p>Complete el formulario para registrar el ingreso de un lote al almacén</p>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>N° de Lote *</label>
+            <input type="text" id="e-lote" placeholder="Ej: LOTE-001" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div class="form-group">
+            <label>N° de Convoy *</label>
+            <input type="text" id="e-convoy" placeholder="Ej: CONVOY-045" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div class="form-group">
+            <label>Tipo de Concentrado *</label>
+            <select id="e-tipo">
+              <option value="">Seleccionar tipo...</option>
+              <option value="GRAVIMÉTRICO">GRAVIMÉTRICO</option>
+              <option value="BOFEDAL">BOFEDAL</option>
+              <option value="FLOTACIÓN">FLOTACIÓN</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fecha de Ingreso *</label>
+            <input type="date" id="e-fecha">
+          </div>
+          <div class="form-group">
+            <label>Cantidad de Bolsas BigBag *</label>
+            <input type="number" id="e-cantidad" placeholder="0" min="1">
+          </div>
+          <!-- Celda viene del mapa — oculta para código, visible solo como info -->
+          <input type="hidden" id="e-ubicacion">
+          <div class="form-group full" id="e-celda-info">
+            <label>Celda seleccionada</label>
+            <div id="e-celda-display" style="
+              padding:11px 14px; border-radius:8px; font-size:14px; font-weight:600;
+              display:flex; align-items:center; gap:10px;">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Responsable</label>
+            <input type="text" id="e-responsable" placeholder="Nombre del responsable" readonly
+              style="background:#f0f4f8;cursor:default;">
+          </div>
+          <div class="form-group full">
+            <label>Observación</label>
+            <textarea id="e-obs" placeholder="Observaciones adicionales (opcional)..."></textarea>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-success" onclick="registrarEntrada()">✅ Registrar Entrada</button>
+          <button class="btn btn-outline" onclick="limpiarEntrada()">🗑️ Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SALIDA ── -->
+    <div class="view" id="view-salida">
+      <div class="page-header">
+        <h2>📤 Registrar Salida de Producto</h2>
+        <p>Busque por N° de Lote o seleccione desde el mapa</p>
+      </div>
+      <div class="card">
+
+        <!-- Buscador por lote -->
+        <div style="display:flex;gap:10px;margin-bottom:18px;">
+          <input type="text" id="s-buscar" placeholder="Buscar por N° de Lote..." 
+            oninput="buscarLoteParaSalida()"
+            style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-secondary);color:var(--text);">
+          <button class="btn btn-outline" onclick="showView('mapa')" title="Seleccionar desde mapa">🗺️ Desde Mapa</button>
+        </div>
+
+        <!-- Resultados de búsqueda (solo cuando se escribe) -->
+        <div id="salida-resultados"></div>
+
+        <!-- Ficha del lote seleccionado -->
+        <div id="salida-lote-card" style="display:none;background:var(--bg-secondary);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Lote seleccionado</div>
+              <div style="font-size:22px;font-weight:800;color:var(--primary);" id="slc-lote">—</div>
+            </div>
+            <span id="slc-tipo-badge" style="background:#e8f4fd;color:#1a6fa8;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">—</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
+            <div><div style="font-size:11px;color:var(--text-light);">Convoy</div><div style="font-weight:600;" id="slc-convoy">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-light);">Stock disponible</div><div style="font-weight:700;color:var(--success);" id="slc-stock">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-light);">Celda</div><div style="font-weight:600;" id="slc-celda">—</div></div>
+          </div>
+        </div>
+
+        <!-- Formulario de salida -->
+        <div id="salida-form" style="display:none;">
+          <input type="hidden" id="s-codigo-sel">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Cantidad a Retirar *</label>
+              <input type="number" id="s-cantidad" placeholder="0" min="1">
+            </div>
+            <div class="form-group">
+              <label>Motivo de Salida *</label>
+              <select id="s-motivo">
+                <option value="">Seleccionar motivo...</option>
+                <option value="ARMADO DE CAMA">Armado de cama</option>
+                <option value="TRASLADO HACIA PELETIZADO">Traslado hacia peletizado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Responsable</label>
+              <input type="text" id="s-responsable" readonly style="background:var(--bg-secondary);cursor:not-allowed;opacity:0.85;">
+            </div>
+            <div class="form-group">
+              <label>Fecha de Salida *</label>
+              <input type="date" id="s-fecha">
+            </div>
+            <div class="form-group full">
+              <label>Observación</label>
+              <textarea id="s-obs" rows="2" placeholder="Observaciones adicionales..." style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;background:var(--bg-secondary);color:var(--text);"></textarea>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger" onclick="registrarSalida()">📤 Confirmar Salida</button>
+            <button class="btn btn-outline" onclick="cancelarSalida()">✖ Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BUSCAR ── -->
+    <div class="view" id="view-buscar">
+      <div class="page-header">
+        <h2>🔍 Buscar Producto</h2>
+        <p>Busque por código, nombre o tipo de producto</p>
+      </div>
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="b-query" placeholder="Código de producto, descripción o tipo..." onkeydown="if(event.key==='Enter')buscarProducto()">
+          <button class="btn btn-primary" onclick="buscarProducto()">🔍 Buscar</button>
+        </div>
+        <div id="buscar-resultados"></div>
+      </div>
+    </div>
+
+    <!-- ── HISTORIAL ── -->
+    <div class="view" id="view-historial">
+      <div class="page-header">
+        <h2>📋 Historial de Movimientos</h2>
+        <p id="historial-periodo">Período: Año actual</p>
+      </div>
+      <!-- Filtros del historial -->
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+        <select id="h-filtro" onchange="renderHistorial()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+          <option value="">Todos los movimientos</option>
+          <option value="ENTRADA">Solo Entradas</option>
+          <option value="SALIDA">Solo Salidas</option>
+        </select>
+        <input type="date" id="h-fecha-desde" onchange="renderHistorial()" title="Desde"
+          style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <input type="date" id="h-fecha-hasta" onchange="renderHistorial()" title="Hasta"
+          style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <input type="text" id="h-buscar" placeholder="Filtrar por lote, convoy..." oninput="renderHistorial()"
+          style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;flex:1;min-width:140px;">
+        <button onclick="limpiarFiltrosHistorial()" class="btn btn-outline" style="padding:9px 14px;font-size:13px;">✖ Limpiar</button>
+      </div>
+      <!-- Totalizador del día -->
+      <div id="h-totales" style="display:none;margin-bottom:14px;"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Tipo</th><th>N° Lote</th><th>N° Convoy</th>
+              <th>Concentrado</th><th>Bolsas BigBag</th><th>Celda</th><th>Motivo</th><th>Fecha</th><th>Responsable</th>
+            </tr>
+          </thead>
+          <tbody id="historial-tbody"></tbody>
+        </table>
+      </div>
+      <div id="historial-empty" class="empty-state" style="display:none;">
+        <div class="ei">📋</div>No hay movimientos registrados
+      </div>
+    </div>
+
+    <!-- ── ADMIN ── -->
+    <div class="view" id="view-admin">
+      <div class="page-header">
+        <h2>⚙️ Administración</h2>
+        <p>Gestión anual de datos y configuración del sistema</p>
+      </div>
+
+      <div class="admin-zone">
+        <h4>⚠️ Gestión Anual de Datos</h4>
+        <p>Al iniciar un nuevo año, puedes exportar el historial actual y luego limpiar los registros del período anterior. El inventario actual <strong>no se elimina</strong>, solo el historial de movimientos.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportarDatos()">⬇️ Exportar Datos (CSV)</button>
+          <button class="btn btn-danger" onclick="confirmarLimpiezaAnual()">🗑️ Limpiar Historial Anual</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h4 style="margin-bottom:14px;color:var(--primary);">📅 Información del Período Actual</h4>
+        <div id="admin-info"></div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-bottom:14px;color:var(--primary);">🔑 Cambiar Contraseña</h4>
+        <div class="form-grid" style="max-width:400px;">
+          <div class="form-group full">
+            <label>Nueva Contraseña</label>
+            <input type="password" id="adm-newpass" placeholder="Nueva contraseña">
+          </div>
+          <div class="form-group full">
+            <label>Confirmar Contraseña</label>
+            <input type="password" id="adm-newpass2" placeholder="Repetir contraseña">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="cambiarPassword()">💾 Guardar Contraseña</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EDITOR DE MAPA ── -->
+    <div class="view" id="view-editor">
+      <div class="page-header">
+        <h2>✏️ Editor de Mapa</h2>
+        <p>Crea y organiza las zonas de tu almacén. Cada zona tendrá sus propias celdas para gestionar inventario.</p>
+      </div>
+      <div class="editor-toolbar">
+        <button class="btn btn-success" onclick="showZoneModal()">➕ Agregar Zona</button>
+        <button class="btn btn-outline" onclick="resetZonas()">↺ Restaurar zonas por defecto</button>
+        <span style="font-size:13px;color:var(--text-light);">💡 Usa ↑ ↓ para reordenar · cada zona crea sus propias celdas</span>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <h4 style="margin-bottom:14px;color:var(--primary);">📋 Zonas configuradas</h4>
+        <div class="zone-list" id="zone-list"></div>
+        <div id="zone-list-empty" class="empty-state" style="display:none;">
+          <div class="ei">🗺️</div>No hay zonas configuradas. ¡Agrega la primera!
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:12px;color:var(--primary);">👁️ Vista previa del mapa</h4>
+        <div style="overflow-x:auto;"><div class="dyn-map" id="editor-preview"></div></div>
+        <p style="margin-top:10px;font-size:12px;color:var(--text-light);">✅ El mapa del almacén usa estas zonas automáticamente.</p>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- MODAL ZONA -->
+<div class="modal-overlay" id="modal-zona">
+  <div class="modal">
+    <h3 id="modal-zona-titulo">➕ Nueva Zona</h3>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Nombre de la Zona *</label>
+        <input type="text" id="z-name" placeholder="Ej: RACK 1, ALMACÉN ÓXIDO DE CALCIO">
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="z-type">
+          <option value="rack">📦 Rack / Estantería</option>
+          <option value="oxido">⚗️ Zona Química</option>
+          <option value="refractarios">🧱 Refractarios</option>
+          <option value="general">🏭 General</option>
+          <option value="decorative">🚧 Decorativo (sin celdas)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Color de la zona</label>
+        <input type="color" id="z-color" value="#1e3a5f">
+      </div>
+      <div class="form-group">
+        <label>Filas de celdas</label>
+        <input type="number" id="z-rows" value="6" min="0" max="20">
+      </div>
+      <div class="form-group">
+        <label>Columnas de celdas</label>
+        <input type="number" id="z-cols" value="2" min="0" max="8">
+      </div>
+      <div class="form-group">
+        <label>Mostrar señal ⚠️</label>
+        <select id="z-hazard">
+          <option value="0">No</option>
+          <option value="1">Sí</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Ícono decorativo</label>
+        <input type="text" id="z-icon" placeholder="Ej: 🪜 🏗️ 🔥" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>Prefijo de celdas</label>
+        <input type="text" id="z-prefix" placeholder="Ej: J, R, A, OX1" maxlength="5" oninput="this.value=this.value.toUpperCase()">
+        <small style="color:var(--text-light);font-size:11px;">Aparece antes del número: J1, J2, J3… Déjalo vacío para solo números.</small>
+      </div>
+      <div class="form-group">
+        <label>Invertir columnas</label>
+        <select id="z-invertido">
+          <option value="0">No — columna izquierda tiene los primeros números</option>
+          <option value="1">Sí — columna derecha tiene los primeros números</option>
+        </select>
+        <small style="color:var(--text-light);font-size:11px;">Con 2 columnas de 11 celdas: Normal → izq 1-11, der 12-22 · Invertido → der 1-11, izq 12-22</small>
+      </div>
+      <div class="form-group">
+        <label>Número inicial de celdas</label>
+        <input type="number" id="z-startnum" value="1" min="0" max="9999">
+        <small style="color:var(--text-light);font-size:11px;">Las celdas se numerarán desde este número. Úsalo para continuar la numeración del rack anterior.</small>
+      </div>
+    </div>
+    <input type="hidden" id="z-edit-id">
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="saveZona()">💾 Guardar Zona</button>
+      <button class="btn btn-outline" onclick="cerrarModalZona()">✖ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL CELDA ══════════ -->
+<div class="modal-overlay" id="modal-celda">
+  <div class="modal">
+    <h3 id="modal-celda-titulo">Celda A-01</h3>
+    <div id="modal-celda-body"></div>
+    <div class="btn-row" id="modal-celda-btns" style="margin-top:18px;"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+//  DATOS Y CONFIGURACIÓN
+// ════════════════════════════════════════
+const YEAR = new Date().getFullYear();
+let _loggedUser = '';
+
+function getCreds() {
+  return JSON.parse(localStorage.getItem('almacen_creds') || '{"user":"operador","pass":"almacen2024"}');
+}
+
+// ═══════════════════════════════════════════
+//  DEFINICIÓN DE ZONAS — fiel al plano
+// ═══════════════════════════════════════════
+// 3 columnas de racks en el centro (R1, R2, R3)
+const RACK_COLS = [
+  { id:'R1', rows:12 },
+  { id:'R2', rows:12 },
+  { id:'R3', rows:12 },
+];
+// 3 cuartos de ÓXIDO DE CALCIO en fila horizontal
+const OX_ROOMS = [
+  { id:'OX1' },
+  { id:'OX2' },
+  { id:'OX3' },
+];
+const OX_SHELF = { cols:2, rows:8 }; // estantes dentro de cada cuarto OXIDO
+
+// Área inferior: perímetro + grilla central grande
+const INF = { top:12, bot:12, sides:6, cCols:3, cRows:3 };
+
+function allCells() {
+  const c = [];
+  // Racks centrales
+  RACK_COLS.forEach(z => {
+    for(let r=1;r<=z.rows;r++) c.push(`${z.id}-R${r}`);
+  });
+  // Cuartos OXIDO
+  OX_ROOMS.forEach(z => {
+    for(let col=1;col<=OX_SHELF.cols;col++)
+      for(let row=1;row<=OX_SHELF.rows;row++)
+        c.push(`${z.id}-C${col}R${row}`);
+  });
+  // INFERIOR perímetro
+  for(let i=1;i<=INF.top;i++)  c.push(`D-T${i}`);
+  for(let i=1;i<=INF.bot;i++)  c.push(`D-B${i}`);
+  for(let i=1;i<=INF.sides;i++) { c.push(`D-L${i}`); c.push(`D-R${i}`); }
+  // INFERIOR centro (grilla grande)
+  for(let r=1;r<=INF.cRows;r++)
+    for(let col=1;col<=INF.cCols;col++)
+      c.push(`D-CR${r}C${col}`);
+  return c;
+}
+
+// ════════════════════════════════════════
+//  STORAGE
+// ════════════════════════════════════════
+function getInventario() { return JSON.parse(localStorage.getItem(`almacen_inv_${YEAR}`) || '{}'); }
+function saveInventario(inv) { localStorage.setItem(`almacen_inv_${YEAR}`, JSON.stringify(inv)); }
+function getHistorial() { return JSON.parse(localStorage.getItem(`almacen_hist_${YEAR}`) || '[]'); }
+function saveHistorial(h) { localStorage.setItem(`almacen_hist_${YEAR}`, JSON.stringify(h)); }
+function getCeldas() {
+  const raw = JSON.parse(localStorage.getItem('almacen_celdas') || '{}');
+  // Migrar formato viejo { codigo } → [{ codigo }]
+  const migrated = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (Array.isArray(v)) migrated[k] = v;
+    else if (v && v.codigo) migrated[k] = [{ codigo: v.codigo }];
+  }
+  return migrated;
+}
+function saveCeldas(c) { localStorage.setItem('almacen_celdas', JSON.stringify(c)); }
+
+// ════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════
+function doLogin() {
+  const user = document.getElementById('l-user').value.trim();
+  const pass = document.getElementById('l-pass').value.trim();
+  const creds = getCreds();
+  if (user === creds.user && pass === creds.pass) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('sidebar-username').textContent = '👤 ' + user;
+    document.getElementById('sidebar-year').textContent = 'Año: ' + YEAR;
+    _loggedUser = user;
+    initApp();
+  } else {
+    const err = document.getElementById('login-error');
+    err.style.display = 'block';
+    setTimeout(() => err.style.display = 'none', 3000);
+  }
+}
+function doLogout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('l-user').value = '';
+  document.getElementById('l-pass').value = '';
+}
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('l-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('l-pass').focus(); });
+
+// ════════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  const navEl = document.getElementById('nav-'+id);
+  if (navEl) navEl.classList.add('active');
+  if (id === 'mapa') renderMapa();
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'historial') renderHistorial();
+  if (id === 'entrada') { poblarSelectCeldas(); setTimeout(actualizarCeldaDisplay, 50); }
+  if (id === 'admin') renderAdmin();
+}
+
+function initApp() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('e-fecha').value = today;
+  document.getElementById('s-fecha').value = today;
+  const eResp = document.getElementById('e-responsable');
+  if (eResp) eResp.value = _loggedUser;
+  const sResp = document.getElementById('s-responsable');
+  if (sResp) sResp.value = _loggedUser;
+  renderDashboard();
+}
+
+// ════════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════════
+function renderDashboard() {
+  const inv = getInventario();
+  const hist = getHistorial();
+  const celdas = getCeldas();
+  const totalCeldas = allCells().length;
+  const ocupadas = Object.values(celdas).filter(c => Array.isArray(c) && c.length > 0).length;
+  const entradas = hist.filter(h => h.tipo === 'ENTRADA').length;
+  const salidas = hist.filter(h => h.tipo === 'SALIDA').length;
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-icon">📦</div><div><div class="stat-num">${Object.keys(inv).length}</div><div class="stat-lbl">Productos registrados</div></div></div>
+    <div class="stat-card"><div class="stat-icon">🗃️</div><div><div class="stat-num">${ocupadas}/${totalCeldas}</div><div class="stat-lbl">Celdas ocupadas</div></div></div>
+    <div class="stat-card"><div class="stat-icon">📥</div><div><div class="stat-num">${entradas}</div><div class="stat-lbl">Entradas (${YEAR})</div></div></div>
+    <div class="stat-card"><div class="stat-icon">📤</div><div><div class="stat-num">${salidas}</div><div class="stat-lbl">Salidas (${YEAR})</div></div></div>
+  `;
+
+  const ultimos = hist.slice(-8).reverse();
+  if (ultimos.length === 0) {
+    document.getElementById('dashboard-recent').innerHTML = '<div class="empty-state"><div class="ei">📋</div>Sin movimientos aún</div>';
+    return;
+  }
+  let rows = ultimos.map(h => `
+    <tr>
+      <td><span class="badge ${h.tipo==='ENTRADA'?'badge-success':'badge-danger'}">${h.tipo}</span></td>
+      <td><strong>${h.codigo}</strong></td>
+      <td>${h.descripcion || '-'}</td>
+      <td>${h.cantidad} ${h.unidad||''}</td>
+      <td>${h.celda || '-'}</td>
+      <td>${h.fecha}</td>
+    </tr>
+  `).join('');
+  document.getElementById('dashboard-recent').innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Tipo</th><th>Código</th><th>Producto</th><th>Cant.</th><th>Celda</th><th>Fecha</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  `;
+}
+
+// ════════════════════════════════════════
+//  MAPA — renderizado fiel al plano
+// ════════════════════════════════════════
+function renderMapa() {
+  const celdas = getCeldas();
+  const map = document.getElementById('warehouse-map');
+  map.innerHTML = '';
+
+  // ── 1. SALA REFRACTARIOS (izquierda) ──────────────
+  const refDiv = document.createElement('div');
+  refDiv.className = 'wh-ref';
+  refDiv.innerHTML = `
+    <span style="font-size:30px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.25));">⚠️</span>
+    <div class="wh-ref-label">ALMACÉN<br>PARA<br>REFRACTARIOS</div>
+  `;
+  map.appendChild(refDiv);
+
+  // ── 2. RACKS CENTRALES (3 columnas) + señales ⚠️ ──
+  const center = document.createElement('div');
+  center.className = 'wh-center';
+
+  const hRow = document.createElement('div');
+  hRow.className = 'wh-hazard-row';
+  ['⚠️','⚠️','⚠️'].forEach(() => {
+    const s = document.createElement('span');
+    s.className = 'wh-hazard-icon'; s.textContent = '⚠️';
+    hRow.appendChild(s);
+  });
+  center.appendChild(hRow);
+
+  const racksBox = document.createElement('div');
+  racksBox.className = 'wh-racks-box';
+  RACK_COLS.forEach(z => {
+    const rackUnit = document.createElement('div');
+    rackUnit.className = 'wh-rack-unit';
+    const col1 = document.createElement('div'); col1.className = 'wh-rack-col';
+    const col2 = document.createElement('div'); col2.className = 'wh-rack-col';
+    for(let r=1;r<=z.rows;r++) {
+      if(r % 2 === 1) col1.appendChild(buildCell(`${z.id}-R${r}`, celdas));
+      else col2.appendChild(buildCell(`${z.id}-R${r}`, celdas));
+    }
+    rackUnit.appendChild(col1);
+    rackUnit.appendChild(col2);
+    racksBox.appendChild(rackUnit);
+  });
+  center.appendChild(racksBox);
+  map.appendChild(center);
+
+  // ── 3. COLUMNA DERECHA: escalera + OXIDO + inferior ──
+  const rightCol = document.createElement('div');
+  rightCol.className = 'wh-right';
+
+  // Fila superior: escalera | oxido (fila horizontal)
+  const rightTop = document.createElement('div');
+  rightTop.className = 'wh-right-top';
+
+  // Escalera
+  const stairs = document.createElement('div');
+  stairs.className = 'wh-stairs';
+  stairs.innerHTML = '🪜<span class="wh-stairs-lbl">ESCALERA</span>';
+  rightTop.appendChild(stairs);
+
+  // Cuartos OXIDO DE CALCIO — en fila horizontal
+  const oxidoWrap = document.createElement('div');
+  oxidoWrap.className = 'wh-oxido';
+  const oxHaz = document.createElement('div');
+  oxHaz.className = 'wh-ox-hazard'; oxHaz.textContent = '⚠️';
+  oxidoWrap.appendChild(oxHaz);
+  const oxRoomRow = document.createElement('div');
+  oxRoomRow.className = 'wh-ox-rooms';
+  OX_ROOMS.forEach(z => {
+    const room = document.createElement('div');
+    room.className = 'wh-ox-room';
+    room.innerHTML = '<div class="wh-ox-label">ALMACÉN<br>ÓXIDO DE<br>CALCIO</div>';
+    const shelves = document.createElement('div');
+    shelves.className = 'wh-ox-shelves';
+    for(let c=1;c<=OX_SHELF.cols;c++) {
+      const col = document.createElement('div'); col.className = 'wh-rack-col';
+      for(let r=1;r<=OX_SHELF.rows;r++) col.appendChild(buildCell(`${z.id}-C${c}R${r}`, celdas));
+      shelves.appendChild(col);
+    }
+    room.appendChild(shelves);
+    oxRoomRow.appendChild(room);
+  });
+  oxidoWrap.appendChild(oxRoomRow);
+  rightTop.appendChild(oxidoWrap);
+  rightCol.appendChild(rightTop);
+
+  // ÁREA INFERIOR (abajo de escalera + OXIDO)
+  rightCol.appendChild(buildInferiorZone(celdas));
+  map.appendChild(rightCol);
+}
+
+// Construye el ÁREA INFERIOR: perímetro de estantes + grilla central grande
+function buildInferiorZone(celdas) {
+  const div = document.createElement('div');
+  div.className = 'wh-inferior';
+  div.innerHTML = '<div class="wh-inf-label">ÁREA INFERIOR</div>';
+
+  // Fila superior del perímetro
+  const topRow = document.createElement('div'); topRow.className = 'wh-inf-perim-row';
+  for(let i=1;i<=INF.top;i++) topRow.appendChild(buildCell(`D-T${i}`, celdas));
+  div.appendChild(topRow);
+
+  // Cuerpo central: lado izq | grilla grande | lado der
+  const body = document.createElement('div'); body.className = 'wh-inf-body';
+  const left = document.createElement('div'); left.className = 'wh-inf-side';
+  for(let i=1;i<=INF.sides;i++) left.appendChild(buildCell(`D-L${i}`, celdas));
+  body.appendChild(left);
+
+  const centerGrid = document.createElement('div'); centerGrid.className = 'wh-inf-center';
+  for(let r=1;r<=INF.cRows;r++)
+    for(let c=1;c<=INF.cCols;c++)
+      centerGrid.appendChild(buildCellLg(`D-CR${r}C${c}`, celdas));
+  body.appendChild(centerGrid);
+
+  const right = document.createElement('div'); right.className = 'wh-inf-side';
+  for(let i=1;i<=INF.sides;i++) right.appendChild(buildCell(`D-R${i}`, celdas));
+  body.appendChild(right);
+  div.appendChild(body);
+
+  // Fila inferior del perímetro
+  const botRow = document.createElement('div'); botRow.className = 'wh-inf-perim-row';
+  botRow.style.marginTop = '6px';
+  for(let i=1;i<=INF.bot;i++) botRow.appendChild(buildCell(`D-B${i}`, celdas));
+  div.appendChild(botRow);
+
+  return div;
+}
+
+
+// ════════════════════════════════════════
+//  HELPERS DE CELDA
+// ════════════════════════════════════════
+function getCellFriendlyName(cellId) {
+  const zones = getZones().filter(z => z.type !== 'decorative' && z.rows > 0 && z.cols > 0);
+  for (let zi = 0; zi < zones.length; zi++) {
+    const z = zones[zi];
+    const prefix_sep = z.id + '-C';
+    if (cellId.startsWith(prefix_sep)) {
+      const rest = cellId.slice(prefix_sep.length);
+      const match = rest.match(/^(\d+)R(\d+)$/);
+      if (match) {
+        const ci  = parseInt(match[1]);
+        const row = parseInt(match[2]);
+        const numSlot = z.invertido ? (z.cols - ci) : (ci - 1);
+        const cellNum = (z.startNum || 1) + numSlot * (z.rows || 1) + (row - 1);
+        // Si la zona tiene prefijo definido, usarlo; sino usar primera letra del nombre
+        const prefix = z.prefix || (z.name ? z.name.trim().charAt(0).toUpperCase() : String.fromCharCode(65 + zi));
+        return prefix + cellNum;
+      }
+    }
+  }
+  return cellId;
+}
+
+function getCellProducts(cellId) {
+  const celdas = getCeldas();
+  const val = celdas[cellId];
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (val.codigo) return [{ codigo: val.codigo }]; // migración inline
+  return [];
+}
+
+// Celda delgada (estantería)
+function buildCell(cellId, celdas, displayName) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const dn = displayName || getCellFriendlyName(cellId);
+  const raw = celdas[cellId];
+  const prods = Array.isArray(raw) ? raw : (raw && raw.codigo ? [{codigo: raw.codigo}] : []);
+  if (prods.length === 0) {
+    cell.classList.add('empty');
+    cell.title = `${dn} — Vacío`;
+  } else {
+    cell.classList.add('occupied');  // verde siempre que haya productos
+    const resumen = prods.map(p => {
+      const inv = getInventario();
+      const prod = inv[p.codigo] || {};
+      return p.codigo + (prod.cantidad ? ' (' + prod.cantidad + ' BB)' : '');
+    }).join(' | ');
+    cell.title = `${dn} → ${resumen}`;
+  }
+  cell.textContent = dn;
+  cell.onclick = () => abrirModalCelda(cellId, dn);
+  return cell;
+}
+
+// Celda grande (grilla central del área inferior)
+function buildCellLg(cellId, celdas, displayName) {
+  const cell = document.createElement('div');
+  cell.className = 'cell-lg';
+  const dn = displayName || getCellFriendlyName(cellId);
+  const raw = celdas[cellId];
+  const prods = Array.isArray(raw) ? raw : (raw && raw.codigo ? [{codigo: raw.codigo}] : []);
+  if (prods.length === 0) {
+    cell.classList.add('empty');
+    cell.title = `${dn} — Vacío`;
+  } else {
+    cell.classList.add('occupied');
+    const resumen = prods.map(p => p.codigo).join(' | ');
+    cell.title = `${dn} → ${resumen}`;
+  }
+  cell.textContent = dn;
+  cell.onclick = () => abrirModalCelda(cellId, dn);
+  return cell;
+}
+
+// ════════════════════════════════════════
+//  MODAL CELDA — con acciones directas
+let _sourceCellId = null; // Rastrear de qué celda viene la salida/entrada
+
+// ════════════════════════════════════════
+function abrirModalCelda(cellId, displayName) {
+  const dn     = displayName || getCellFriendlyName(cellId);
+  const celdas = getCeldas();
+  const inv    = getInventario();
+  const prods  = celdas[cellId] || [];
+  document.getElementById('modal-celda-titulo').textContent = `📦 Celda: ${dn}`;
+
+  if (prods.length > 0) {
+    // ── CELDA CON PRODUCTOS ───────────────────────
+    let body = prods.map(({ codigo }) => {
+      const prod = inv[codigo] || {};
+      return `
+        <div style="background:#f8fafc;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <strong style="color:var(--primary);font-size:15px;">${codigo}</strong>
+            <button class="btn btn-danger" style="padding:5px 12px;font-size:12px;"
+              onclick="irASalidaConCodigo('${codigo}','${cellId}')">📤 Salida</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-light);">${prod.tipo||'—'}${prod.convoy ? ' · Convoy: '+prod.convoy : ''}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--success);margin-top:4px;">📦 ${prod.cantidad || 0} ${prod.unidad || 'BigBag'}</div>
+        </div>`;
+    }).join('');
+    body += `<p style="font-size:12px;color:var(--text-light);margin-top:4px;">🗃️ ${prods.length} producto(s) en esta celda</p>`;
+    document.getElementById('modal-celda-body').innerHTML = body;
+    document.getElementById('modal-celda-btns').innerHTML = `
+      <button class="btn btn-success" style="flex:1" onclick="irAEntradaConCelda('${cellId}')">📥 Agregar Producto</button>
+      <button class="btn btn-outline" onclick="cerrarModal()">✖ Cerrar</button>
+    `;
+  } else {
+    // ── CELDA VACÍA ───────────────────────────────
+    document.getElementById('modal-celda-body').innerHTML = `
+      <div style="text-align:center;padding:20px 10px;">
+        <div style="font-size:40px;margin-bottom:10px;">📭</div>
+        <p style="font-size:14px;color:var(--text);">Esta celda está <strong>vacía</strong>.</p>
+        <p style="font-size:12px;color:var(--text-light);margin-top:6px;">Puedes registrar un nuevo producto aquí.</p>
+      </div>
+    `;
+    document.getElementById('modal-celda-btns').innerHTML = `
+      <button class="btn btn-success" style="flex:1" onclick="irAEntradaConCelda('${cellId}')">📥 Registrar Producto Aquí</button>
+      <button class="btn btn-outline" onclick="cerrarModal()">✖ Cerrar</button>
+    `;
+  }
+  document.getElementById('modal-celda').classList.add('open');
+}
+
+function irAEntradaConCelda(cellId) {
+  cerrarModal();
+  // Fijar la celda ANTES de mostrar la vista para que actualizarCeldaDisplay la lea bien
+  document.getElementById('e-ubicacion').value = cellId;
+  showView('entrada');
+  setTimeout(() => {
+    actualizarCeldaDisplay();
+    document.getElementById('e-lote').focus();
+  }, 60);
+}
+
+function irASalidaConCodigo(codigo, cellId) {
+  _sourceCellId = cellId || null;
+  cerrarModal();
+  showView('salida');
+  setTimeout(() => { activarLoteSalida(codigo, cellId); }, 80);
+}
+function cerrarModal() { document.getElementById('modal-celda').classList.remove('open'); }
+document.getElementById('modal-celda').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal(); });
+
+function liberarCelda(cellId, codigo) {
+  const dn = getCellFriendlyName(cellId);
+  if (!confirm(`¿Liberar la celda ${dn}? Los productos seguirán en el inventario pero sin ubicación asignada.`)) return;
+  const celdas = getCeldas();
+  delete celdas[cellId];
+  saveCeldas(celdas);
+  cerrarModal();
+  renderMapa();
+  toast('Celda liberada correctamente', 'success');
+}
+
+// ════════════════════════════════════════
+//  ENTRADA
+// ════════════════════════════════════════
+function poblarSelectCeldas() {
+  // e-ubicacion es un campo hidden; se llena desde el mapa via irAEntradaConCelda
+  // Esta función ya no manipula ningún select
+}
+
+function registrarEntrada() {
+  const lote        = document.getElementById('e-lote').value.trim().toUpperCase();
+  const convoy      = document.getElementById('e-convoy').value.trim().toUpperCase();
+  const tipo        = document.getElementById('e-tipo').value;
+  const fecha       = document.getElementById('e-fecha').value;
+  const cantidad    = parseInt(document.getElementById('e-cantidad').value);
+  const ubicacion   = document.getElementById('e-ubicacion').value;
+  const responsable = document.getElementById('e-responsable').value.trim();
+  const obs         = document.getElementById('e-obs').value.trim();
+
+  if (!lote)     { toast('Ingrese el N° de Lote', 'error'); return; }
+  if (!convoy)   { toast('Ingrese el N° de Convoy', 'error'); return; }
+  if (!tipo)     { toast('Seleccione el Tipo de Concentrado', 'error'); return; }
+  if (!fecha)    { toast('Seleccione la Fecha de Ingreso', 'error'); return; }
+  if (!cantidad || isNaN(cantidad)) { toast('Ingrese la Cantidad de BigBag', 'error'); return; }
+  if (!ubicacion){ toast('⚠️ Debe seleccionar una celda desde el Mapa', 'error'); showView('mapa'); return; }
+  if (cantidad <= 0) { toast('La cantidad debe ser mayor a 0', 'error'); return; }
+
+  const inv    = getInventario();
+  const hist   = getHistorial();
+  const celdas = getCeldas();
+  const codigo = lote;
+
+  if (inv[codigo]) {
+    inv[codigo].cantidad += cantidad;
+    inv[codigo].fecha_ultima_entrada = fecha;
+    if (convoy) inv[codigo].convoy = convoy;
+  } else {
+    inv[codigo] = {
+      codigo: lote, lote, convoy, tipo,
+      descripcion: tipo + ' · Lote ' + lote,
+      cantidad, unidad: 'BigBag',
+      fecha_ingreso: fecha, fecha_ultima_entrada: fecha,
+      observaciones: obs, responsable
+    };
+  }
+
+  if (!Array.isArray(celdas[ubicacion])) celdas[ubicacion] = [];
+  if (!celdas[ubicacion].find(p => p.codigo === codigo)) {
+    celdas[ubicacion].push({ codigo });
+  }
+
+  const celdaNombre = getCellFriendlyName(ubicacion);
+  hist.push({ tipo: 'ENTRADA', codigo: lote, lote, convoy, descripcion: tipo,
+    cantidad, unidad: 'BigBag', celda: ubicacion, celdaNombre,
+    fecha, obs, responsable, ts: Date.now() });
+
+  saveInventario(inv); saveHistorial(hist); saveCeldas(celdas);
+  toast('✅ Entrada registrada: Lote ' + lote + ' → Celda ' + celdaNombre, 'success');
+  limpiarEntrada();
+  renderMapa();
+}
+
+function limpiarEntrada() {
+  ['e-lote','e-convoy','e-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('e-tipo').value = '';
+  document.getElementById('e-cantidad').value = '';
+  document.getElementById('e-ubicacion').value = ''; actualizarCeldaDisplay();
+  document.getElementById('e-fecha').value = new Date().toISOString().split('T')[0];
+  // Responsable se mantiene (es el usuario logueado)
+  const eResp = document.getElementById('e-responsable');
+  if (eResp && !eResp.value) eResp.value = _loggedUser;
+}
+
+// ════════════════════════════════════════
+//  SALIDA
+// ════════════════════════════════════════
+function buscarParaSalida() { buscarLoteParaSalida(); }
+
+function buscarLoteParaSalida() {
+  const q   = document.getElementById('s-buscar').value.trim().toUpperCase();
+  const inv = getInventario();
+  const celdas = getCeldas();
+  const div = document.getElementById('salida-resultados');
+
+  // Si vino desde el mapa ya hay lote seleccionado → no tocar
+  if (!q) {
+    div.innerHTML = '';
+    if (!document.getElementById('s-codigo-sel').value) {
+      document.getElementById('salida-lote-card').style.display = 'none';
+      document.getElementById('salida-form').style.display = 'none';
+    }
+    return;
+  }
+
+  // Construir mapa celda por producto
+  const celdaMap = {};
+  Object.entries(celdas).forEach(([cid, prods]) => {
+    if (Array.isArray(prods)) prods.forEach(p => { if (!celdaMap[p.codigo]) celdaMap[p.codigo] = cid; });
+  });
+
+  const resultados = Object.values(inv).filter(p =>
+    p.codigo.toUpperCase().includes(q) || (p.lote||'').toUpperCase().includes(q)
+  );
+
+  if (resultados.length === 0) {
+    div.innerHTML = `<div style="padding:12px;color:var(--text-light);font-size:13px;text-align:center;">
+      🔍 No se encontró el lote "<strong>${q}</strong>"
+    </div>`;
+    return;
+  }
+
+  // Mostrar lista de coincidencias para elegir
+  div.innerHTML = resultados.map(p => {
+    const cid  = celdaMap[p.codigo] || '';
+    const celda = cid ? getCellFriendlyName(cid) : 'Sin celda';
+    return `<div onclick="activarLoteSalida('${p.codigo}','${cid}')"
+      style="display:flex;justify-content:space-between;align-items:center;
+             padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;
+             margin-bottom:8px;cursor:pointer;background:var(--bg-secondary);transition:.15s;"
+      onmouseover="this.style.borderColor='var(--primary)'"
+      onmouseout="this.style.borderColor='var(--border)'">
+      <div>
+        <div style="font-weight:700;font-size:15px;color:var(--primary);">${p.codigo}</div>
+        <div style="font-size:12px;color:var(--text-light);">${p.tipo||'—'} · Celda: ${celda}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--success);">${p.cantidad} BigBag</div>
+        <div style="font-size:11px;color:var(--text-light);">Seleccionar →</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function activarLoteSalida(codigo, cellId) {
+  const inv    = getInventario();
+  const celdas = getCeldas();
+  const p      = inv[codigo];
+  if (!p) return;
+
+  _sourceCellId = cellId || null;
+
+  // Limpiar resultados de búsqueda
+  document.getElementById('salida-resultados').innerHTML = '';
+  document.getElementById('s-buscar').value = '';
+
+  // Rellenar ficha del lote
+  const celdaMap = {};
+  Object.entries(celdas).forEach(([cid, prods]) => {
+    if (Array.isArray(prods)) prods.forEach(pr => { if (!celdaMap[pr.codigo]) celdaMap[pr.codigo] = cid; });
+  });
+  const cid   = cellId || celdaMap[codigo] || '';
+  const celda = cid ? getCellFriendlyName(cid) : 'Sin celda';
+
+  document.getElementById('slc-lote').textContent       = p.codigo;
+  document.getElementById('slc-tipo-badge').textContent  = p.tipo || '—';
+  document.getElementById('slc-convoy').textContent      = p.convoy || '—';
+  document.getElementById('slc-stock').textContent       = (p.cantidad || 0) + ' BigBag';
+  document.getElementById('slc-celda').textContent       = celda;
+
+  document.getElementById('salida-lote-card').style.display = 'block';
+
+  // Rellenar formulario
+  document.getElementById('s-codigo-sel').value = codigo;
+  const hoy = new Date().toISOString().split('T')[0];
+  const sfecha = document.getElementById('s-fecha');
+  if (sfecha) sfecha.value = hoy;
+  const sResp = document.getElementById('s-responsable');
+  if (sResp) sResp.value = _loggedUser || '';
+  document.getElementById('s-cantidad').value = '';
+  document.getElementById('s-motivo').value   = '';
+  document.getElementById('s-obs').value      = '';
+  document.getElementById('salida-form').style.display = 'block';
+  document.getElementById('s-cantidad').focus();
+}
+
+function selProductoSalida(codigo) { activarLoteSalida(codigo, _sourceCellId || ''); }
+
+function cancelarSalida() {
+  _sourceCellId = null;
+  document.getElementById('salida-lote-card').style.display = 'none';
+  document.getElementById('salida-form').style.display     = 'none';
+  document.getElementById('salida-resultados').innerHTML   = '';
+  document.getElementById('s-buscar').value     = '';
+  document.getElementById('s-codigo-sel').value = '';
+  document.getElementById('s-cantidad').value   = '';
+  document.getElementById('s-motivo').value     = '';
+  document.getElementById('s-fecha').value      = '';
+  document.getElementById('s-obs').value        = '';
+}
+
+function registrarSalida() {
+  const codigo      = document.getElementById('s-codigo-sel').value;
+  const cantidad    = parseInt(document.getElementById('s-cantidad').value);
+  const motivo      = document.getElementById('s-motivo').value;
+  const fecha       = document.getElementById('s-fecha').value;
+  const responsable = document.getElementById('s-responsable').value.trim();
+  const obs         = document.getElementById('s-obs').value.trim();
+
+  if (!codigo || !cantidad || !motivo) { toast('Complete todos los campos obligatorios', 'error'); return; }
+
+  const inv = getInventario();
+  const hist = getHistorial();
+  const celdas = getCeldas();
+
+  if (!inv[codigo]) { toast('Producto no encontrado', 'error'); return; }
+  if (cantidad > inv[codigo].cantidad) { toast(`Stock insuficiente. Disponible: ${inv[codigo].cantidad}`, 'error'); return; }
+
+  const desc_sal  = inv[codigo].descripcion || '';
+  const unidad_sal = inv[codigo].unidad || '';
+  const celda_sal  = _sourceCellId || '';
+  inv[codigo].cantidad -= cantidad;
+
+  if (inv[codigo].cantidad === 0) {
+    // Agotado: quitar de la celda y del inventario
+    function quitarProdDeCelda(cid, cod) {
+      if (!Array.isArray(celdas[cid])) return;
+      celdas[cid] = celdas[cid].filter(p => p.codigo !== cod);
+      if (celdas[cid].length === 0) delete celdas[cid];
+    }
+    if (_sourceCellId) {
+      quitarProdDeCelda(_sourceCellId, codigo);
+    } else {
+      Object.keys(celdas).forEach(cid => quitarProdDeCelda(cid, codigo));
+    }
+    delete inv[codigo];
+    toast('📤 Salida registrada. Lote agotado — celda liberada.', 'success');
+  } else {
+    // Aún hay stock: el producto permanece en la celda
+    toast('📤 Salida registrada: ' + cantidad + ' bolsas retiradas. Quedan ' + inv[codigo].cantidad + ' BigBag.', 'success');
+  }
+  _sourceCellId = null;
+
+  const celdaNombreSal = celda_sal ? getCellFriendlyName(celda_sal) : '';
+  hist.push({ tipo: 'SALIDA', codigo, descripcion: desc_sal, cantidad, unidad: unidad_sal, celda: celda_sal, celdaNombre: celdaNombreSal, fecha, motivo, responsable, obs, ts: Date.now() });
+
+  saveInventario(inv); saveHistorial(hist); saveCeldas(celdas);
+  cancelarSalida();
+  document.getElementById('s-buscar').value = '';
+  document.getElementById('salida-resultados').innerHTML = '';
+  renderMapa(); // Refrescar mapa inmediatamente
+}
+
+// ════════════════════════════════════════
+//  BUSCAR
+// ════════════════════════════════════════
+function buscarProducto() {
+  const q = document.getElementById('b-query').value.trim().toLowerCase();
+  const inv = getInventario();
+  const celdas = getCeldas();
+  const div = document.getElementById('buscar-resultados');
+
+  const celdaMap = {};
+  Object.entries(celdas).forEach(([cid, prods]) => {
+    if (Array.isArray(prods)) prods.forEach(p => { if (!celdaMap[p.codigo]) celdaMap[p.codigo] = cid; });
+  });
+
+  const resultados = q
+    ? Object.values(inv).filter(p =>
+        p.codigo.toLowerCase().includes(q) ||
+        (p.descripcion||'').toLowerCase().includes(q) ||
+        (p.tipo||'').toLowerCase().includes(q)
+      )
+    : Object.values(inv);
+
+  if (resultados.length === 0) {
+    div.innerHTML = '<div class="empty-state"><div class="ei">🔍</div>No se encontraron productos</div>';
+    return;
+  }
+
+  div.innerHTML = resultados.map(p => {
+    const celda = celdaMap[p.codigo] || '—';
+    return `
+      <div class="result-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3>📦 ${p.codigo}</h3>
+          <span class="badge ${p.cantidad>0?'badge-success':'badge-danger'}">${p.cantidad>0?'EN STOCK':'AGOTADO'}</span>
+        </div>
+        <div class="result-grid">
+          <div class="result-field"><span>N° Lote</span><strong>${p.lote||p.codigo||'—'}</strong></div>
+          <div class="result-field"><span>N° Convoy</span><strong>${p.convoy||'—'}</strong></div>
+          <div class="result-field"><span>Concentrado</span><strong>${p.tipo||'—'}</strong></div>
+          <div class="result-field"><span>Bolsas BigBag</span><strong>${p.cantidad} ${p.unidad||''}</strong></div>
+          <div class="result-field"><span>📍 Celda</span><strong style="color:var(--primary);">${celda ? getCellFriendlyName(celda) : '—'}</strong></div>
+          <div class="result-field"><span>Fecha Ingreso</span><strong>${p.fecha_ingreso||'—'}</strong></div>
+        </div>
+        ${p.observaciones ? `<p style="font-size:12px;color:var(--text-light);margin-top:10px;">📝 ${p.observaciones}</p>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+//  HISTORIAL
+// ════════════════════════════════════════
+function renderHistorial() {
+  const hist       = getHistorial();
+  const filtro     = document.getElementById('h-filtro').value;
+  const bq         = document.getElementById('h-buscar').value.toLowerCase();
+  const fechaDesde = document.getElementById('h-fecha-desde').value;
+  const fechaHasta = document.getElementById('h-fecha-hasta').value;
+
+  let lista = hist.filter(h => {
+    if (filtro && h.tipo !== filtro) return false;
+    if (fechaDesde && h.fecha < fechaDesde) return false;
+    if (fechaHasta && h.fecha > fechaHasta) return false;
+    if (bq) {
+      const lote   = (h.lote || h.codigo || '').toLowerCase();
+      const convoy = (h.convoy || h.proveedor || '').toLowerCase();
+      const desc   = (h.descripcion || '').toLowerCase();
+      if (!lote.includes(bq) && !convoy.includes(bq) && !desc.includes(bq)) return false;
+    }
+    return true;
+  }).slice().reverse();
+
+  // ── Período mostrado ──
+  let periodoTxt = `Año ${YEAR} — ${hist.length} movimientos`;
+  if (fechaDesde || fechaHasta) {
+    const d = fechaDesde || '…';
+    const h2 = fechaHasta || '…';
+    periodoTxt += ` | Filtro: ${d} → ${h2}`;
+  }
+  document.getElementById('historial-periodo').textContent = 'Período: ' + periodoTxt;
+
+  // ── Totalizador ──
+  const totDiv = document.getElementById('h-totales');
+  const bbEntradas  = lista.filter(h => h.tipo === 'ENTRADA').reduce((s,h) => s + (h.cantidad||0), 0);
+  const bbSalidas   = lista.filter(h => h.tipo === 'SALIDA').reduce((s,h)  => s + (h.cantidad||0), 0);
+  const numEntradas = lista.filter(h => h.tipo === 'ENTRADA').length;
+  const numSalidas  = lista.filter(h => h.tipo === 'SALIDA').length;
+  if (lista.length > 0) {
+    totDiv.style.display = 'block';
+    totDiv.innerHTML = `<div class="hist-totales">
+      <div class="hist-total-card entradas">
+        <span class="hist-total-num">${numEntradas}</span>
+        <span class="hist-total-lbl">Entradas</span>
+        <span class="hist-total-sub">📦 ${bbEntradas} BigBag</span>
+      </div>
+      <div class="hist-total-card salidas">
+        <span class="hist-total-num">${numSalidas}</span>
+        <span class="hist-total-lbl">Salidas</span>
+        <span class="hist-total-sub">📤 ${bbSalidas} BigBag</span>
+      </div>
+      <div class="hist-total-card total">
+        <span class="hist-total-num">${bbEntradas - bbSalidas}</span>
+        <span class="hist-total-lbl">Balance BigBag</span>
+        <span class="hist-total-sub">📋 ${lista.length} movimiento(s)</span>
+      </div>
+    </div>`;
+  } else {
+    totDiv.style.display = 'none';
+  }
+
+  if (lista.length === 0) {
+    document.getElementById('historial-tbody').innerHTML = '';
+    document.getElementById('historial-empty').style.display = 'block';
+    return;
+  }
+  document.getElementById('historial-empty').style.display = 'none';
+  document.getElementById('historial-tbody').innerHTML = lista.map((h, i) => `
+    <tr>
+      <td>${lista.length - i}</td>
+      <td><span class="badge ${h.tipo==='ENTRADA'?'badge-success':'badge-danger'}">${h.tipo}</span></td>
+      <td><strong>${h.lote || h.codigo || '—'}</strong></td>
+      <td>${h.convoy || h.proveedor || '—'}</td>
+      <td>${h.descripcion||'—'}</td>
+      <td>${h.cantidad} ${h.unidad||''}</td>
+      <td>${(() => {
+        if (!h.celda) return h.celdaNombre || '—';
+        const fn = getCellFriendlyName(h.celda);
+        // getCellFriendlyName encontró la zona → usar nombre amigable
+        if (fn && fn !== h.celda) return fn;
+        // celdaNombre guardado no parece un ID crudo → usarlo
+        if (h.celdaNombre && !/^z-/.test(h.celdaNombre)) return h.celdaNombre;
+        // Último recurso: extraer C y R del ID para mostrar algo legible
+        const m = h.celda.match(/C(\d+)R(\d+)$/);
+        if (m) return 'Col.' + m[1] + ' Fil.' + m[2];
+        return '—';
+      })()}</td>
+      <td>${h.tipo==='SALIDA' ? (h.motivo || '—') : '—'}</td>
+      <td>${h.fecha}</td>
+      <td>${h.responsable || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function limpiarFiltrosHistorial() {
+  document.getElementById('h-filtro').value = '';
+  document.getElementById('h-fecha-desde').value = '';
+  document.getElementById('h-fecha-hasta').value = '';
+  document.getElementById('h-buscar').value = '';
+  renderHistorial();
+}
+
+// ════════════════════════════════════════
+//  ADMIN
+// ════════════════════════════════════════
+function renderAdmin() {
+  const inv = getInventario();
+  const hist = getHistorial();
+  document.getElementById('admin-info').innerHTML = `
+    <div class="modal-info-row"><span>Año activo:</span><strong>${YEAR}</strong></div>
+    <div class="modal-info-row"><span>Productos en inventario:</span><strong>${Object.keys(inv).length}</strong></div>
+    <div class="modal-info-row"><span>Movimientos registrados:</span><strong>${hist.length}</strong></div>
+    <div class="modal-info-row"><span>Celdas utilizadas:</span><strong>${Object.keys(getCeldas()).length} / ${allCells().length}</strong></div>
+    <div class="modal-info-row"><span>Almacenamiento local:</span><strong>${(JSON.stringify(localStorage).length/1024).toFixed(1)} KB</strong></div>
+  `;
+}
+
+function exportarDatos() {
+  const hist = getHistorial();
+  if (hist.length === 0) { toast('No hay datos para exportar', 'error'); return; }
+  let csv = 'Tipo,Código,Descripción,Cantidad,Unidad,Celda,Fecha,Info\n';
+  hist.forEach(h => {
+    csv += `"${h.tipo}","${h.codigo}","${(h.descripcion||'').replace(/"/g,'""')}","${h.cantidad}","${h.unidad||''}","${h.celda||''}","${h.fecha}","${(h.tipo==='ENTRADA'?h.proveedor:h.motivo)||''}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `almacen_historial_${YEAR}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Datos exportados correctamente', 'success');
+}
+
+function confirmarLimpiezaAnual() {
+  const hist = getHistorial();
+  if (hist.length === 0) { toast('No hay historial que limpiar', 'error'); return; }
+  if (!confirm(`⚠️ ¿Eliminar el historial de ${hist.length} movimientos del año ${YEAR}?\n\nEl inventario actual NO se eliminará, solo el historial.\n\nSe recomienda exportar antes de continuar.`)) return;
+  localStorage.removeItem(`almacen_hist_${YEAR}`);
+  toast('🗑️ Historial anual eliminado correctamente', 'success');
+  renderAdmin();
+}
+
+function cambiarPassword() {
+  const np = document.getElementById('adm-newpass').value;
+  const np2 = document.getElementById('adm-newpass2').value;
+  if (!np) { toast('Ingrese una nueva contraseña', 'error'); return; }
+  if (np !== np2) { toast('Las contraseñas no coinciden', 'error'); return; }
+  if (np.length < 6) { toast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+  const creds = getCreds();
+  creds.pass = np;
+  localStorage.setItem('almacen_creds', JSON.stringify(creds));
+  document.getElementById('adm-newpass').value = '';
+  document.getElementById('adm-newpass2').value = '';
+  toast('✅ Contraseña actualizada correctamente', 'success');
+}
+
+// ════════════════════════════════════════
+//  ZONAS DINÁMICAS — Motor del Editor
+// ════════════════════════════════════════
+const ZONE_DEFAULTS = [
+  { id:'z-ref', name:'ALMAC\u00c9N\nREFRACTARIOS', type:'refractarios', color:'#1e3a5f', rows:6,  cols:1, hazard:1, icon:'', x:8,   y:10, w:90,  h:280, rotation:0, startNum:1 },
+  { id:'z-r1',  name:'RACK 1',               type:'rack',         color:'#27ae60', rows:6,  cols:2, hazard:1, icon:'', x:108, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-r2',  name:'RACK 2',               type:'rack',         color:'#27ae60', rows:6,  cols:2, hazard:1, icon:'', x:206, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-r3',  name:'RACK 3',               type:'rack',         color:'#27ae60', rows:6,  cols:2, hazard:1, icon:'', x:304, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-esc', name:'ESCALERA',             type:'decorative',   color:'#9aaab8', rows:0,  cols:0, hazard:0, icon:'\ud83e\uddd7', x:402, y:10, w:56,  h:76,  rotation:0, startNum:1 },
+  { id:'z-ox1', name:'ALMAC\u00c9N\n\u00d3XIDO 1',    type:'oxido',        color:'#c09060', rows:8,  cols:2, hazard:0, icon:'', x:468, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-ox2', name:'ALMAC\u00c9N\n\u00d3XIDO 2',    type:'oxido',        color:'#c09060', rows:8,  cols:2, hazard:0, icon:'', x:566, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-ox3', name:'ALMAC\u00c9N\n\u00d3XIDO 3',    type:'oxido',        color:'#c09060', rows:8,  cols:2, hazard:0, icon:'', x:664, y:10, w:88,  h:200, rotation:0, startNum:1 },
+  { id:'z-inf', name:'\u00c1REA INFERIOR',        type:'general',      color:'#1e5a1e', rows:4,  cols:4, hazard:0, icon:'', x:402, y:96, w:355, h:165, rotation:0, startNum:1 },
+];
+
+function getZones() {
+  const s = localStorage.getItem('almacen_zones');
+  return s ? JSON.parse(s) : JSON.parse(JSON.stringify(ZONE_DEFAULTS));
+}
+function saveZones(z) { localStorage.setItem('almacen_zones', JSON.stringify(z)); }
+
+// Override allCells() para usar zonas dinámicas
+function allCells() {
+  const cells = [];
+  getZones().filter(z => z.type !== 'decorative' && z.rows > 0 && z.cols > 0).forEach(z => {
+    for(let c=1;c<=z.cols;c++)
+      for(let r=1;r<=z.rows;r++)
+        cells.push(`${z.id}-C${c}R${r}`);
+  });
+  return cells;
+}
+
+// Override renderMapa() para usar zonas dinámicas
+// ── Estado de edición ──
+let _editMode = false;
+let _drag = null, _resize = null;
+
+function toggleEditMode() {
+  _editMode = !_editMode;
+  const btn = document.getElementById('edit-mode-btn');
+  const addBtn = document.getElementById('add-zone-map-btn');
+  const banner = document.getElementById('edit-banner');
+  const hint = document.getElementById('mapa-hint');
+  btn.textContent = _editMode ? '\u2705 Salir de edición' : '\u270f\ufe0f Editar Mapa';
+  btn.className = _editMode ? 'btn btn-warning' : 'btn btn-outline';
+  addBtn.style.display = _editMode ? 'inline-flex' : 'none';
+  banner.style.display = _editMode ? 'flex' : 'none';
+  hint.textContent = _editMode ? 'MODO EDICI\u00d3N: arrastra zonas, doble clic para renombrar' : 'Haz clic en una celda para ver o asignar un producto';
+  renderMapa();
+}
+
+function renderMapa() {
+  const zones = getZones();
+  const celdas = getCeldas();
+  const map = document.getElementById('warehouse-map');
+  map.innerHTML = '';
+  map.className = _editMode ? 'warehouse-map edit-mode' : 'warehouse-map';
+  if (!zones.length) { map.innerHTML = '<div style="padding:20px;color:#888;font-size:13px;">Sin zonas. Agrega una.</div>'; return; }
+  zones.forEach(z => map.appendChild(buildDynZone(z, celdas, false)));
+}
+
+function buildDynZone(z, celdas, preview) {
+  const isEdit = _editMode && !preview;
+  const hasPos = z.x !== undefined;
+
+  if (z.type === 'decorative') {
+    const d = document.createElement('div');
+    d.className = 'dyn-zone-deco' + (preview ? ' view-mode-z' : '');
+    if (hasPos && !preview) d.style.cssText = `left:${z.x}px;top:${z.y}px;width:${z.w||60}px;height:${z.h||80}px;transform:rotate(${z.rotation||0}deg);transform-origin:center center;`;
+    d.innerHTML = `<span class="dz-icon">${z.icon||'\ud83d\udce6'}</span><span class="dz-lbl">${z.name.replace(/\n/g,'<br>')}</span>`;
+    if (isEdit) {
+      addDrag(d, z.id);
+      const del = mkDel(z.id); d.appendChild(del);
+      const rot = mkRot(z.id); d.appendChild(rot);
+      const rsz = mkRsz(z.id, d); d.appendChild(rsz);
+    }
+    return d;
+  }
+
+  const div = document.createElement('div');
+  div.className = 'dyn-zone' + (preview ? ' view-mode-z' : '');
+  if (hasPos && !preview) div.style.cssText = `border-color:${z.color};left:${z.x}px;top:${z.y}px;width:${z.w||100}px;height:${z.h||200}px;transform:rotate(${z.rotation||0}deg);transform-origin:center center;`;
+  else div.style.borderColor = z.color;
+
+  const lbl = document.createElement('div');
+  lbl.className = 'dyn-zone-label';
+  lbl.style.color = z.color;
+  lbl.style.background = z.color + '22';
+  lbl.innerHTML = (z.hazard ? '\u26a0\ufe0f ' : '') + z.name.replace(/\n/g,'<br>');
+  if (isEdit) {
+    lbl.title = 'Doble clic para renombrar';
+    lbl.className += ' z-lbl-edit';
+    lbl.ondblclick = e => { e.stopPropagation(); renameZone(z.id, lbl, z.color); };
+  }
+  div.appendChild(lbl);
+
+  if (z.rows > 0 && z.cols > 0) {
+    const wrap = document.createElement('div'); wrap.className = 'dyn-zone-cells';
+    const rot = z.rotation || 0;
+    // Columnas siempre en orden visual 1,2,...N
+    // Cuando invertido=true el RANGO de números de cada columna se invierte:
+    //   col 1 (izq) recibe los números altos, col N (der) recibe los bajos
+    for (let ci = 1; ci <= z.cols; ci++) {
+      const col = document.createElement('div'); col.className = 'dyn-zone-col';
+      // numSlot 0-based: qué bloque de números corresponde a esta columna visual
+      const numSlot = z.invertido ? (z.cols - ci) : (ci - 1);
+      for (let r = 1; r <= z.rows; r++) {
+        const cid = `${z.id}-C${ci}R${r}`;
+        const cellNum = (z.startNum || 1) + numSlot * z.rows + (r - 1);
+        const displayName = (z.prefix || '') + cellNum;
+        if (preview) {
+          const pc = document.createElement('div');
+          pc.className = 'cell empty';
+          pc.textContent = displayName;
+          if (rot) pc.style.transform = `rotate(${-rot}deg)`;
+          col.appendChild(pc);
+        } else {
+          const cell = buildCell(cid, celdas, displayName);
+          if (rot) cell.style.transform = `rotate(${-rot}deg)`;
+          col.appendChild(cell);
+        }
+      }
+      wrap.appendChild(col);
+    }
+    div.appendChild(wrap);
+  }
+
+  if (isEdit) {
+    addDrag(div, z.id);
+    div.appendChild(mkDel(z.id));
+    div.appendChild(mkRot(z.id));
+    div.appendChild(mkRsz(z.id, div));
+    if (z.cols > 1) div.appendChild(mkInv(z.id)); // botón invertir solo si hay >1 columna
+  }
+  return div;
+}
+
+function mkDel(zid) {
+  const b = document.createElement('button'); b.className = 'z-del'; b.textContent = '\u00d7';
+  b.onclick = e => { e.stopPropagation(); deleteZona(zid); }; return b;
+}
+function mkInv(zid) {
+  const zones = getZones(); const z = zones.find(x => x.id === zid);
+  const b = document.createElement('button');
+  b.className = 'z-inv' + (z && z.invertido ? ' active' : '');
+  b.textContent = '\u21c6'; // ⇆
+  b.title = z && z.invertido ? 'Columnas invertidas (clic para restaurar)' : 'Invertir orden de columnas';
+  b.onclick = e => {
+    e.stopPropagation();
+    const zs = getZones(); const zz = zs.find(x => x.id === zid);
+    if (zz) { zz.invertido = !zz.invertido; saveZones(zs); renderMapa(); renderEditor(); }
+  };
+  return b;
+}
+function mkRot(zid) {
+  const b = document.createElement('button'); b.className = 'z-rot'; b.textContent = '\ud83d\udd04';
+  b.title = 'Rotar 90\u00b0';
+  b.onclick = e => {
+    e.stopPropagation();
+    const zones = getZones(); const z = zones.find(x => x.id === zid);
+    if (z) { z.rotation = ((z.rotation || 0) + 90) % 360; saveZones(zones); renderMapa(); }
+  }; return b;
+}
+function mkRsz(zid, el) {
+  const r = document.createElement('div'); r.className = 'z-rsz';
+  r.onmousedown = e => { e.stopPropagation(); e.preventDefault();
+    _resize = { zid, el, startX:e.clientX, startY:e.clientY, startW:el.offsetWidth, startH:el.offsetHeight };
+  }; return r;
+}
+function addDrag(el, zid) {
+  el.addEventListener('mousedown', e => {
+    if (!_editMode || e.target.classList.contains('z-del') || e.target.classList.contains('z-rsz') || e.target.classList.contains('z-inv') || e.target.classList.contains('cell')) return;
+    e.preventDefault();
+    const map = document.getElementById('warehouse-map');
+    const mr  = map.getBoundingClientRect();
+    const borderL = map.clientLeft || 0;
+    const borderT = map.clientTop  || 0;
+    // offX = distancia del click al borde izquierdo de la zona, relativo al mapa
+    _drag = {
+      el, zid, map,
+      offX: e.clientX - mr.left - borderL - (parseInt(el.style.left) || 0),
+      offY: e.clientY - mr.top  - borderT - (parseInt(el.style.top)  || 0)
+    };
+  });
+}
+document.addEventListener('mousemove', e => {
+  if (_drag) {
+    const mr = _drag.map.getBoundingClientRect();
+    const borderL = _drag.map.clientLeft || 0;
+    const borderT = _drag.map.clientTop  || 0;
+    const x = Math.max(0, e.clientX - mr.left - borderL - _drag.offX);
+    const y = e.clientY - mr.top - borderT - _drag.offY; // sin límite superior
+    _drag.el.style.left = x + 'px';
+    _drag.el.style.top  = y + 'px';
+  }
+  if (_resize) {
+    const dw = e.clientX - _resize.startX, dh = e.clientY - _resize.startY;
+    _resize.el.style.width = Math.max(60, _resize.startW + dw) + 'px';
+    if (_resize.startH) _resize.el.style.height = Math.max(60, _resize.startH + dh) + 'px';
+  }
+});
+document.addEventListener('mouseup', () => {
+  if (_drag) {
+    const zones = getZones(); const z = zones.find(x => x.id === _drag.zid);
+    if (z) { z.x = parseInt(_drag.el.style.left)||0; z.y = parseInt(_drag.el.style.top)||0; saveZones(zones); }
+    _drag = null;
+  }
+  if (_resize) {
+    const zones = getZones(); const z = zones.find(x => x.id === _resize.zid);
+    if (z) { z.w = _resize.el.offsetWidth; z.h = _resize.el.offsetHeight; saveZones(zones); }
+    _resize = null;
+  }
+});
+
+function renameZone(zid, lblEl, color) {
+  const inp = document.createElement('input');
+  inp.style.cssText = `width:100%;font-size:9px;font-weight:800;text-transform:uppercase;border:1px solid ${color};border-radius:3px;padding:2px;background:${color}22;color:${color};outline:none;`;
+  const zones = getZones(); const z = zones.find(x => x.id === zid);
+  inp.value = z ? z.name.replace(/\n/g,' ') : '';
+  lblEl.innerHTML = ''; lblEl.appendChild(inp); inp.focus(); inp.select();
+  function save() {
+    if (!inp.value.trim()) return;
+    const zs = getZones(); const zz = zs.find(x => x.id === zid);
+    if (zz) { zz.name = inp.value.trim(); saveZones(zs); }
+    renderMapa(); renderEditor();
+  }
+  inp.onblur = save;
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') renderMapa(); };
+}
+
+function buildPreviewCell() {
+  const c = document.createElement('div'); c.className = 'cell empty'; return c;
+}
+
+// ── EDITOR: Render lista de zonas ──
+function renderEditor() {
+  const zones = getZones();
+  const list = document.getElementById('zone-list');
+  const empty = document.getElementById('zone-list-empty');
+  const preview = document.getElementById('editor-preview');
+  list.innerHTML = '';
+  preview.innerHTML = '';
+  empty.style.display = zones.length ? 'none' : 'block';
+  zones.forEach((z, i) => {
+    const cells = z.type === 'decorative' ? 'Decorativo' : `${z.rows * z.cols} celdas (${z.rows}f × ${z.cols}c)${z.prefix ? ' · Prefijo: ' + z.prefix : ''}${z.invertido ? ' · ↔ Invertida' : ''}`;
+    const item = document.createElement('div'); item.className = 'zone-item';
+    item.innerHTML = `
+      <div class="zone-item-header">
+        <div class="zone-color-bar" style="background:${z.color};"></div>
+        <div class="zone-item-info">
+          <span class="zone-item-name">${z.name.replace(/\n/g,' ')}</span>
+          <span class="zone-item-meta">${cells} · ID: ${z.id}</span>
+        </div>
+        <div class="zone-item-actions">
+          ${i > 0 ? `<button onclick="moveZona('${z.id}',-1)">↑</button>` : ''}
+          ${i < zones.length-1 ? `<button onclick="moveZona('${z.id}',1)">↓</button>` : ''}
+          <button onclick="editZona('${z.id}')">✏️ Editar</button>
+          <button class="btn-del" onclick="deleteZona('${z.id}')">🗑️ Eliminar</button>
+        </div>
+      </div>`;
+    list.appendChild(item);
+    preview.appendChild(buildDynZone(z, {}, true));
+  });
+}
+
+// ── CRUD Zonas ──
+let _zoneEditId = null;
+function showZoneModal(id) {
+  _zoneEditId = id || null;
+  const zones = getZones();
+  const z = id ? zones.find(x => x.id === id) : null;
+  document.getElementById('modal-zona-titulo').textContent = z ? '✏️ Editar Zona' : '➕ Nueva Zona';
+  document.getElementById('z-name').value  = z ? z.name.replace(/\n/g,' ') : '';
+  document.getElementById('z-type').value  = z ? z.type  : 'rack';
+  document.getElementById('z-color').value = z ? z.color : '#1e3a5f';
+  document.getElementById('z-rows').value  = z ? z.rows  : 6;
+  document.getElementById('z-cols').value  = z ? z.cols  : 2;
+  document.getElementById('z-hazard').value= z ? (z.hazard ? '1' : '0') : '0';
+  document.getElementById('z-icon').value  = z ? (z.icon||'') : '';
+  document.getElementById('z-prefix').value    = z ? (z.prefix||'')   : '';
+  document.getElementById('z-invertido').value = z ? (z.invertido ? '1' : '0') : '0';
+  document.getElementById('z-startnum').value = z ? (z.startNum||1) : 1;
+  document.getElementById('modal-zona').classList.add('open');
+}
+function editZona(id) { showZoneModal(id); }
+function cerrarModalZona() { document.getElementById('modal-zona').classList.remove('open'); }
+document.getElementById('modal-zona').addEventListener('click', e => { if(e.target===e.currentTarget) cerrarModalZona(); });
+
+function saveZona() {
+  const name = document.getElementById('z-name').value.trim();
+  if (!name) { toast('Ingresa un nombre para la zona','error'); return; }
+  const zones = getZones();
+  const data = {
+    name, type: document.getElementById('z-type').value,
+    color: document.getElementById('z-color').value,
+    rows: parseInt(document.getElementById('z-rows').value)||0,
+    cols: parseInt(document.getElementById('z-cols').value)||0,
+    hazard: document.getElementById('z-hazard').value === '1' ? 1 : 0,
+    icon: document.getElementById('z-icon').value.trim(),
+    prefix:    document.getElementById('z-prefix').value.trim().toUpperCase(),
+    invertido: document.getElementById('z-invertido').value === '1',
+    startNum: parseInt(document.getElementById('z-startnum').value) || 1
+  };
+  if (_zoneEditId) {
+    const idx = zones.findIndex(z => z.id === _zoneEditId);
+    if (idx >= 0) { zones[idx] = {...zones[idx], ...data}; }
+    toast('✅ Zona actualizada', 'success');
+  } else {
+    data.id = 'z-' + Date.now();
+    zones.push(data);
+    toast('✅ Zona creada', 'success');
+  }
+  saveZones(zones); cerrarModalZona(); renderEditor(); renderMapa();
+}
+
+function deleteZona(id) {
+  if (!confirm('¿Eliminar esta zona? Las celdas y productos asignados a ella quedarán sin ubicación.')) return;
+  const zones = getZones().filter(z => z.id !== id);
+  saveZones(zones); renderEditor(); renderMapa();
+  toast('🗑️ Zona eliminada', 'success');
+}
+
+function moveZona(id, dir) {
+  const zones = getZones();
+  const i = zones.findIndex(z => z.id === id);
+  const j = i + dir;
+  if (j < 0 || j >= zones.length) return;
+  [zones[i], zones[j]] = [zones[j], zones[i]];
+  saveZones(zones); renderEditor(); renderMapa();
+}
+
+function resetZonas() {
+  if (!confirm('¿Restaurar las zonas por defecto? Se perderán las zonas personalizadas (los productos NO se eliminarán).')) return;
+  localStorage.removeItem('almacen_zones');
+  renderEditor(); renderMapa();
+  toast('↺ Zonas restauradas por defecto', 'success');
+}
+
+// Actualizar poblarSelectCeldas para usar zonas dinámicas
+const _origPoblar = poblarSelectCeldas;
+poblarSelectCeldas = function() {
+  const sel = document.getElementById('e-ubicacion');
+  const celdas = getCeldas();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Seleccionar celda...</option>';
+  getZones().filter(z => z.type !== 'decorative' && z.rows > 0 && z.cols > 0).forEach(z => {
+    const grp = document.createElement('optgroup');
+    grp.label = z.name.replace(/\n/g,' ');
+    for(let col=1;col<=z.cols;col++) for(let r=1;r<=z.rows;r++) {
+      const cid = `${z.id}-C${col}R${r}`;
+      const dn = getCellFriendlyName(cid);
+      const opt = document.createElement('option'); opt.value = cid;
+      const prods = celdas[cid];
+      const count = Array.isArray(prods) ? prods.length : 0;
+      if (count === 0) {
+        opt.textContent = `${dn} — Libre`;
+      } else {
+        opt.textContent = `${dn} — ${count} producto(s): ${prods.map(p=>p.codigo).join(', ')}`;
+        opt.style.color = '#c09000';
+      }
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  });
+  if(current) sel.value = current;
+};
+
+// Hook showView para renderizar editor
+const _origShowView = showView;
+showView = function(id) {
+  _origShowView(id);
+  if (id === 'editor') renderEditor();
+};
+
+// ════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+// ════════════════════════════════════════
+//  CONTROLES DE TAMAÑO DEL MAPA
+// ════════════════════════════════════════
+const MAP_SIZES = {
+  normal: { w: 1000, h: 680 },
+  grande: { w: 1400, h: 960 },
+  enorme: { w: 2000, h: 1300 }
+};
+let _mapFullscreen = false;
+
+function setMapSize(preset) {
+  const s = MAP_SIZES[preset];
+  const map = document.getElementById('warehouse-map');
+  const hSlider = document.getElementById('map-height-slider');
+  const wSlider = document.getElementById('map-width-slider');
+  map.style.minHeight = s.h + 'px';
+  map.style.minWidth  = s.w + 'px';
+  hSlider.value = s.h;
+  wSlider.value = s.w;
+  document.getElementById('map-height-val').textContent = s.h + 'px';
+  document.getElementById('map-width-val').textContent  = s.w + 'px';
+  updateSliderFill(hSlider, 400, 1600);
+  updateSliderFill(wSlider, 800, 2400);
+  ['normal','grande','enorme'].forEach(k => {
+    const btn = document.getElementById('sz-' + k);
+    if (btn) btn.classList.toggle('active', k === preset);
+  });
+  localStorage.setItem('almacen_map_size', JSON.stringify({ preset, w: s.w, h: s.h }));
+}
+
+function onMapHeightSlider(val) {
+  val = parseInt(val);
+  const map = document.getElementById('warehouse-map');
+  map.style.minHeight = val + 'px';
+  document.getElementById('map-height-val').textContent = val + 'px';
+  const slider = document.getElementById('map-height-slider');
+  updateSliderFill(slider, 400, 1600);
+  clearPresetActive();
+  localStorage.setItem('almacen_map_size', JSON.stringify({
+    preset: null,
+    w: parseInt(document.getElementById('map-width-slider').value),
+    h: val
+  }));
+}
+
+function onMapWidthSlider(val) {
+  val = parseInt(val);
+  const map = document.getElementById('warehouse-map');
+  map.style.minWidth = val + 'px';
+  document.getElementById('map-width-val').textContent = val + 'px';
+  const slider = document.getElementById('map-width-slider');
+  updateSliderFill(slider, 800, 2400);
+  clearPresetActive();
+  localStorage.setItem('almacen_map_size', JSON.stringify({
+    preset: null,
+    h: parseInt(document.getElementById('map-height-slider').value),
+    w: val
+  }));
+}
+
+function clearPresetActive() {
+  ['normal','grande','enorme'].forEach(k => {
+    const btn = document.getElementById('sz-' + k);
+    if (btn) btn.classList.remove('active');
+  });
+}
+
+function updateSliderFill(slider, min, max) {
+  const pct = ((slider.value - min) / (max - min)) * 100;
+  slider.style.setProperty('--pct', pct + '%');
+}
+
+function toggleMapFullscreen() {
+  const container = document.getElementById('warehouse-map-container');
+  const map = document.getElementById('warehouse-map');
+  const btn = document.querySelector('.map-fullscreen-btn');
+  _mapFullscreen = !_mapFullscreen;
+  if (_mapFullscreen) {
+    container.style.cssText = 'position:fixed;inset:0;z-index:150;background:#fff;padding:16px;overflow:auto;border-radius:0;';
+    map.style.minHeight = (window.innerHeight - 80) + 'px';
+    map.style.minWidth  = (window.innerWidth  - 48) + 'px';
+    btn.textContent = '✕';
+    btn.title = 'Salir de pantalla completa';
+    document.body.style.overflow = 'hidden';
+  } else {
+    container.style.cssText = '';
+    btn.textContent = '⛶';
+    btn.title = 'Pantalla completa';
+    document.body.style.overflow = '';
+    restoreMapSize();
+  }
+}
+
+function restoreMapSize() {
+  const saved = localStorage.getItem('almacen_map_size');
+  if (saved) {
+    const s = JSON.parse(saved);
+    const map = document.getElementById('warehouse-map');
+    map.style.minHeight = (s.h || 680) + 'px';
+    map.style.minWidth  = (s.w || 1000) + 'px';
+    const hSlider = document.getElementById('map-height-slider');
+    const wSlider = document.getElementById('map-width-slider');
+    if (hSlider) { hSlider.value = s.h || 680; document.getElementById('map-height-val').textContent = (s.h||680) + 'px'; updateSliderFill(hSlider, 400, 1600); }
+    if (wSlider) { wSlider.value = s.w || 1000; document.getElementById('map-width-val').textContent = (s.w||1000) + 'px'; updateSliderFill(wSlider, 800, 2400); }
+    if (s.preset) {
+      ['normal','grande','enorme'].forEach(k => {
+        const btn = document.getElementById('sz-' + k);
+        if (btn) btn.classList.toggle('active', k === s.preset);
+      });
+    }
+  }
+}
+
+// Inicializar sliders al mostrar el mapa
+const _origShowViewSize = showView;
+showView = function(id) {
+  _origShowViewSize(id);
+  if (id === 'mapa') {
+    setTimeout(() => {
+      restoreMapSize();
+      const hSlider = document.getElementById('map-height-slider');
+      const wSlider = document.getElementById('map-width-slider');
+      if (hSlider) updateSliderFill(hSlider, 400, 1600);
+      if (wSlider) updateSliderFill(wSlider, 800, 2400);
+    }, 10);
+  }
+};
+
+// ════════════════════════════════════════
+//  DISPLAY DE CELDA SELECCIONADA EN ENTRADA
+// ════════════════════════════════════════
+function actualizarCeldaDisplay() {
+  const val = document.getElementById('e-ubicacion').value;
+  const div = document.getElementById('e-celda-display');
+  if (!div) return;
+  if (val) {
+    const nombre = getCellFriendlyName(val);
+    div.style.background = '#d4f0dc';
+    div.style.border = '1.5px solid #27ae60';
+    div.style.color = '#0d4a22';
+    div.innerHTML = `<span style="font-size:20px;">📍</span>
+      <span>Celda <strong>${nombre}</strong> seleccionada</span>
+      <button onclick="quitarCeldaEntrada()" style="margin-left:auto;background:none;border:none;
+        color:#e74c3c;cursor:pointer;font-size:18px;line-height:1;" title="Quitar selección">✖</button>`;
+  } else {
+    div.style.background = '#fff8f0';
+    div.style.border = '1.5px dashed #f0a500';
+    div.style.color = '#7a5200';
+    div.innerHTML = `<span style="font-size:20px;">🗺️</span>
+      <span>Ninguna celda seleccionada —
+        <button onclick="showView('mapa')" style="background:none;border:none;color:var(--primary);
+          cursor:pointer;font-weight:700;font-size:14px;padding:0;text-decoration:underline;">
+          Ir al Mapa a seleccionar
+        </button>
+      </span>`;
+  }
+}
+
+function quitarCeldaEntrada() {
+  document.getElementById('e-ubicacion').value = '';
+  actualizarCeldaDisplay();
+}
+
+</script>
+</body>
+</html>
